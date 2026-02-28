@@ -15,25 +15,25 @@ export default function Wordmark({ size = 'md', className = '' }: WordmarkProps)
     <div className={`relative inline-block ${className}`}>
       {/* Dashed travel route + heart — decorative overlay above text */}
       <svg
-        viewBox="-2 -12 120 48"
+        viewBox="0 -16 120 50"
         fill="none"
         className="block w-full overflow-visible"
         style={{ height: s.routeH }}
         preserveAspectRatio="xMidYMax meet"
         aria-hidden="true"
       >
-        {/* Route: starts bottom-left, swoops up, loops into a circle, curves right to heart */}
+        {/* Route: starts left, swoops up, loops into a full circle, curves right to heart */}
         <path
-          d="M0 34C14 34 20 14 40 6C52 0 58 -2 66 5C74 12 70 24 62 24C54 24 52 10 62 2C72 -6 86 -2 94 4C98 7 101 5 105 2"
+          d="M2 32C12 32 18 18 32 10C42 4 48 2 52 6C56 10 56 18 52 22C48 26 44 24 44 20C44 16 48 10 56 4C64 -2 76 -2 88 2C94 5 98 4 102 1"
           stroke="var(--teal, #4ECDC4)"
-          strokeWidth="2.8"
+          strokeWidth="2.5"
           strokeLinecap="round"
-          strokeDasharray="0.5 6"
+          strokeDasharray="4 5"
           fill="none"
         />
-        {/* Heart — larger, at the end of the route */}
+        {/* Heart — at the end of the route */}
         <path
-          d="M104 0C104 0 99 -8 104 -11C107 -13 110 -12 111 -9C112 -12 115 -13 118 -11C123 -8 118 0 111 6C104 0 104 0 104 0Z"
+          d="M101 -1C101 -1 97 -7 101 -10C103.5 -12 106 -11 107 -8.5C108 -11 110.5 -12 113 -10C117 -7 113 -1 107 4C101 -1 101 -1 101 -1Z"
           fill="var(--accent, #E07A5F)"
         />
       </svg>
