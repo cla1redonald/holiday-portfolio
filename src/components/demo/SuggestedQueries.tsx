@@ -21,7 +21,7 @@ export default function SuggestedQueries({ onSelect }: SuggestedQueriesProps) {
         <button
           key={query}
           onClick={() => onSelect(query)}
-          className="text-sm px-3 py-1.5 rounded-full border border-border bg-surface hover:border-accent hover:text-accent text-secondary transition-all duration-150 cursor-pointer whitespace-nowrap"
+          className="text-sm px-3 py-1.5 rounded-full border border-border bg-surface hover:border-accent hover:text-accent focus-visible:border-accent focus-visible:text-accent focus-visible:outline-none text-secondary transition-all duration-150 cursor-pointer whitespace-nowrap"
         >
           {query}
         </button>

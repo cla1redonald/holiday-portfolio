@@ -35,7 +35,7 @@ export default function DealCard({ deal }: DealCardProps) {
   };
 
   return (
-    <div className="bg-surface rounded-2xl border border-border shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col group">
+    <article aria-label={`${deal.destination} deal at ${deal.hotel}`} className="bg-surface rounded-2xl border border-border shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col group">
       {/* Image */}
       <div className="relative h-44 overflow-hidden">
         <Image
@@ -43,7 +43,7 @@ export default function DealCard({ deal }: DealCardProps) {
           alt={`${deal.destination}, ${deal.country}`}
           fill
           className="object-cover group-hover:scale-105 transition-transform duration-500"
-          unoptimized
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
         />
         {/* Savings badge */}
         <div className="absolute top-3 left-3 bg-accent text-white text-xs font-bold px-2 py-1 rounded-full">
@@ -104,9 +104,9 @@ export default function DealCard({ deal }: DealCardProps) {
           onClick={scrollToWaitlist}
           className="mt-auto w-full border border-accent text-accent hover:bg-accent hover:text-white font-medium py-2.5 rounded-xl text-sm transition-all duration-200 cursor-pointer group-hover:bg-accent group-hover:text-white"
         >
-          View Deal →
+          View Deal <span aria-hidden="true">→</span>
         </button>
       </div>
-    </div>
+    </article>
   );
 }

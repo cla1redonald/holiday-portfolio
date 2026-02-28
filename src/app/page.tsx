@@ -1,4 +1,6 @@
-import { Suspense } from 'react';
+'use client';
+
+import { Suspense, useState } from 'react';
 import Header from '@/components/layout/Header';
 import Footer from '@/components/layout/Footer';
 import HeroSection from '@/components/hero/HeroSection';
@@ -7,18 +9,28 @@ import HowItWorks from '@/components/how-it-works/HowItWorks';
 import UspSection from '@/components/usps/UspSection';
 import WaitlistForm from '@/components/waitlist/WaitlistForm';
 
-export default function HomePage() {
+function HomeContent() {
+  const [lastQuery, setLastQuery] = useState('');
+
   return (
-    <Suspense>
+    <>
       <Header />
       <main>
         <HeroSection />
-        <NlpSearchDemo />
+        <NlpSearchDemo onQueryChange={setLastQuery} />
         <HowItWorks />
         <UspSection />
-        <WaitlistForm />
+        <WaitlistForm lastQuery={lastQuery} />
       </main>
       <Footer />
+    </>
+  );
+}
+
+export default function HomePage() {
+  return (
+    <Suspense fallback={<div className="min-h-screen bg-background" />}>
+      <HomeContent />
     </Suspense>
   );
 }

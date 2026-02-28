@@ -8,7 +8,11 @@ import SuggestedQueries from './SuggestedQueries';
 import DealGrid from './DealGrid';
 import PreferencePanel from './PreferencePanel';
 
-export default function NlpSearchDemo() {
+interface NlpSearchDemoProps {
+  onQueryChange?: (query: string) => void;
+}
+
+export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
   const [query, setQuery] = useState('');
   const [deals, setDeals] = useState<Deal[]>([]);
   const [preferences, setPreferences] = useState<UserPreference[]>([]);
@@ -19,6 +23,7 @@ export default function NlpSearchDemo() {
     if (!q.trim()) return;
     setLoading(true);
     setHasSearched(true);
+    onQueryChange?.(q);
     try {
       const result = await searchDeals(q);
       setDeals(result.deals);
@@ -34,11 +39,11 @@ export default function NlpSearchDemo() {
   };
 
   return (
-    <section id="demo" className="py-20 bg-background">
+    <section id="demo" aria-labelledby="demo-heading" className="py-20 bg-background">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section header */}
         <div className="text-center mb-12">
-          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">
+          <h2 id="demo-heading" className="text-3xl sm:text-4xl font-bold text-foreground mb-3">
             See it in action
           </h2>
           <p className="text-lg text-secondary max-w-xl mx-auto">

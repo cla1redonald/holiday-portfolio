@@ -52,7 +52,7 @@ function parseQuery(query: string): ParsedQuery {
   }
 
   // Culture
-  if (/culture|museum|history|historic|art|heritage|architecture/.test(lower)) {
+  if (/culture|museum|history|historic|heritage|architecture/.test(lower)) {
     tags.push('culture');
     tags.push('architecture');
     tags.push('historic');

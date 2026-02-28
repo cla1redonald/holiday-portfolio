@@ -28,15 +28,18 @@ export default function HeroSection() {
 
         {/* Headline */}
         <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground tracking-tight leading-[1.1] mb-6">
-          {variant.headline.split(' — ').length > 1 ? (
-            <>
-              {variant.headline.split(' — ')[0]}
-              <span className="text-accent"> — </span>
-              {variant.headline.split(' — ')[1]}
-            </>
-          ) : (
-            variant.headline
-          )}
+          {(() => {
+            const parts = variant.headline.split(' — ');
+            return parts.length > 1 ? (
+              <>
+                {parts[0]}
+                <span className="text-accent"> — </span>
+                {parts.slice(1).join(' — ')}
+              </>
+            ) : (
+              variant.headline
+            );
+          })()}
         </h1>
 
         {/* Sub-headline */}

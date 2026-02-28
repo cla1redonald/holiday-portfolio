@@ -2,7 +2,11 @@
 
 import { FormEvent, useState } from 'react';
 
-export default function WaitlistForm() {
+interface WaitlistFormProps {
+  lastQuery?: string;
+}
+
+export default function WaitlistForm({ lastQuery = '' }: WaitlistFormProps) {
   const [email, setEmail] = useState('');
   const [status, setStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [errorMessage, setErrorMessage] = useState('');
@@ -21,7 +25,7 @@ export default function WaitlistForm() {
         body: JSON.stringify({
           email,
           variant: new URLSearchParams(window.location.search).get('v') ?? 'a',
-          query: '',
+          query: lastQuery,
           timestamp: new Date().toISOString(),
         }),
       });
@@ -77,6 +81,8 @@ export default function WaitlistForm() {
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             placeholder="your@email.com"
+            name="email"
+            autoComplete="email"
             required
             className="flex-1 bg-white/95 text-foreground placeholder-secondary rounded-xl px-4 py-3 text-base outline-none focus:ring-2 focus:ring-white/50 transition-all"
             aria-label="Email address"
@@ -92,11 +98,11 @@ export default function WaitlistForm() {
 
         {/* Error */}
         {status === 'error' && (
-          <div className="mt-4 flex items-center justify-center gap-3">
+          <div role="alert" className="mt-4 flex items-center justify-center gap-3">
             <p className="text-white/90 text-sm">{errorMessage}</p>
             <button
               onClick={handleRetry}
-              className="text-white underline text-sm cursor-pointer"
+              className="text-white underline text-sm cursor-pointer focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-accent rounded"
             >
               Try again
             </button>

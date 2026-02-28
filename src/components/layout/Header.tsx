@@ -21,19 +21,17 @@ export default function Header() {
         scrolled ? 'bg-surface shadow-sm border-b border-border' : 'bg-transparent'
       }`}
     >
-      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <div className="flex items-center gap-2">
-          <span className="text-xl font-semibold text-foreground tracking-tight">
-            Holiday Portfolio
-          </span>
-        </div>
+      <nav aria-label="Main" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <a href="#" className="text-xl font-semibold text-foreground tracking-tight hover:text-accent transition-colors">
+          Holiday Portfolio
+        </a>
         <button
           onClick={scrollToWaitlist}
           className="bg-accent hover:bg-accent-hover text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors duration-200 cursor-pointer"
         >
           Join Waitlist
         </button>
-      </div>
+      </nav>
     </header>
   );
 }

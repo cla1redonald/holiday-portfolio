@@ -18,6 +18,18 @@ export const metadata: Metadata = {
   title: "Holiday Portfolio — Your Year of Travel, Planned",
   description:
     "Holiday Portfolio helps you plan, track, and optimise your year of travel — personalised itineraries, budget insights, and destination discovery in one place.",
+  openGraph: {
+    title: "Holiday Portfolio — Your Year of Travel, Planned",
+    description:
+      "A deal feed that actually knows how you travel. City breaks scored for you, not just by price.",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Holiday Portfolio — Your Year of Travel, Planned",
+    description:
+      "A deal feed that actually knows how you travel. City breaks scored for you, not just by price.",
+  },
 };
 
 export default function RootLayout({

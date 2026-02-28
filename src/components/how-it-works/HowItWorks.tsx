@@ -39,10 +39,10 @@ export default function HowItWorks() {
         {/* Steps */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
           {/* Connecting line (desktop) */}
-          <div className="hidden md:block absolute top-10 left-1/6 right-1/6 h-px bg-border" aria-hidden="true" />
+          <div className="hidden md:block absolute top-10 left-[16.66%] right-[16.66%] h-px bg-border" aria-hidden="true" />
 
           {steps.map((step, index) => (
-            <div key={index} className="relative flex flex-col items-center text-center">
+            <div key={step.number} className="relative flex flex-col items-center text-center">
               {/* Step number + icon */}
               <div className="relative mb-6">
                 <div className="w-20 h-20 rounded-2xl bg-background border-2 border-border flex items-center justify-center text-3xl shadow-sm z-10 relative">
