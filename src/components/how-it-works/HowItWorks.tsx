@@ -1,4 +1,7 @@
+'use client';
+
 import Image from 'next/image';
+import { useScrollReveal } from '@/hooks/useScrollReveal';
 
 const steps = [
   {
@@ -25,11 +28,14 @@ const steps = [
 ];
 
 export default function HowItWorks() {
+  const header = useScrollReveal();
+  const grid = useScrollReveal();
+
   return (
     <section className="py-20 bg-muted border-t border-b border-border">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center mb-14">
+        <div ref={header.ref} className={`text-center mb-14 reveal ${header.isVisible ? 'visible' : ''}`}>
           <h2 className="font-display text-3xl sm:text-4xl font-bold text-foreground mb-3">
             Your journey in 3 simple steps
           </h2>
@@ -39,7 +45,7 @@ export default function HowItWorks() {
         </div>
 
         {/* Steps */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
+        <div ref={grid.ref} className={`grid grid-cols-1 md:grid-cols-3 gap-8 relative reveal-stagger ${grid.isVisible ? 'visible' : ''}`}>
           {/* Connecting line (desktop) */}
           <div className="hidden md:block absolute top-14 left-[16.66%] right-[16.66%] h-px bg-border" aria-hidden="true" />
 

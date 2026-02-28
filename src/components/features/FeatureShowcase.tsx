@@ -1,8 +1,12 @@
+'use client';
+
 import Image from 'next/image';
+import { useScrollReveal } from '@/hooks/useScrollReveal';
 
 const pillars = [
   {
     title: 'Smart Planning',
+    accent: 'bg-accent/10 border-accent/20',
     features: [
       { icon: '/icons/flight-deals.png', label: 'Flights' },
       { icon: '/icons/hotel-finds.png', label: 'Stays' },
@@ -12,6 +16,7 @@ const pillars = [
   },
   {
     title: 'Authentic Discovery',
+    accent: 'bg-teal/10 border-teal/20',
     features: [
       { icon: '/icons/hidden-gems.png', label: 'Hidden gems' },
       { icon: '/icons/local-eats.png', label: 'Local eats' },
@@ -21,6 +26,7 @@ const pillars = [
   },
   {
     title: 'Seamless Utility',
+    accent: 'bg-accent/10 border-accent/20',
     features: [
       { icon: '/icons/passport-check.png', label: 'Visa' },
       { icon: '/icons/currency-converter.png', label: 'Currency' },
@@ -30,6 +36,7 @@ const pillars = [
   },
   {
     title: 'Travel Your Way',
+    accent: 'bg-teal/10 border-teal/20',
     features: [
       { icon: '/icons/heart-sparkle.png', label: 'Solo' },
       { icon: '/icons/group-travel.png', label: 'Group' },
@@ -40,11 +47,14 @@ const pillars = [
 ];
 
 export default function FeatureShowcase() {
+  const header = useScrollReveal();
+  const grid = useScrollReveal();
+
   return (
-    <section className="py-16 bg-background">
+    <section className="py-20 bg-muted">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="text-center mb-12">
+        <div ref={header.ref} className={`text-center mb-12 reveal ${header.isVisible ? 'visible' : ''}`}>
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-foreground mb-2">
             Everything for the journey
           </h2>
@@ -54,11 +64,11 @@ export default function FeatureShowcase() {
         </div>
 
         {/* 4 Pillars Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div ref={grid.ref} className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 reveal-stagger ${grid.isVisible ? 'visible' : ''}`}>
           {pillars.map((pillar) => (
             <div
               key={pillar.title}
-              className="bg-surface border border-border rounded-3xl p-5 hover:border-accent/40 transition-all duration-200"
+              className={`rounded-3xl p-5 border transition-all duration-200 hover:-translate-y-1 ${pillar.accent}`}
             >
               <h3 className="font-display font-semibold text-foreground text-sm mb-4 text-center">
                 {pillar.title}
@@ -69,7 +79,7 @@ export default function FeatureShowcase() {
                     key={feature.label}
                     className="flex flex-col items-center gap-1.5 group"
                   >
-                    <div className="w-12 h-12 rounded-xl bg-muted flex items-center justify-center group-hover:scale-110 transition-transform duration-200">
+                    <div className="w-12 h-12 rounded-xl bg-surface flex items-center justify-center group-hover:scale-110 transition-transform duration-200 shadow-sm">
                       <Image
                         src={feature.icon}
                         alt=""
@@ -86,19 +96,6 @@ export default function FeatureShowcase() {
               </div>
             </div>
           ))}
-        </div>
-
-        {/* Heart sparkle text banner */}
-        <div className="mt-12 flex justify-center">
-          <div className="relative bg-muted border border-border rounded-2xl px-6 py-4 sm:px-10 sm:py-5 flex items-center gap-5 max-w-lg">
-            <Image
-              src="/icons/heart-sparkle-text.png"
-              alt="Plan smart, save for later. Track fares, never overpay."
-              width={280}
-              height={100}
-              className="w-full h-auto object-contain"
-            />
-          </div>
         </div>
       </div>
     </section>

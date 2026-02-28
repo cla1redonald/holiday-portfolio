@@ -19,15 +19,12 @@ function HomeContent() {
       <Header />
       <main>
         <HeroSection />
-        <TravelRoute />
         <NlpSearchDemo onQueryChange={setLastQuery} />
         <TravelRoute />
         <HowItWorks />
-        <TravelRoute />
         <UspSection />
         <TravelRoute />
         <FeatureShowcase />
-        <TravelRoute />
         <WaitlistForm lastQuery={lastQuery} />
       </main>
       <Footer />
