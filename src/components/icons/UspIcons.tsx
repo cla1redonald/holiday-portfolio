@@ -1,88 +1,76 @@
-// USP icon components — 24x24, 2px stroke, rounded caps/joins, currentColor
+// USP icon components — from Roami brand style guide
+// Two-tone: coral (#E07A5F) primary strokes + teal (#4ECDC4) accent details
 
-export function PriceTagIcon({ className = '' }: { className?: string }) {
+export function HiddenGemsIcon({ className = '' }: { className?: string }) {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      {/* Price tag shape */}
-      <path d="M12.5 2H19a1 1 0 011 1v6.5a1 1 0 01-.29.71l-8.5 8.5a2 2 0 01-2.83 0l-4.58-4.59a2 2 0 010-2.83L12.5 2z" />
-      {/* Tag hole */}
-      <circle cx="16.5" cy="7.5" r="1.5" />
-      {/* Checkmark on tag */}
-      <path d="M9 12l1.5 1.5L13 11" strokeWidth="1.8" />
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={className}>
+      <circle cx="11" cy="11" r="7" stroke="var(--accent, #E07A5F)" strokeWidth="2" />
+      <path d="M11 8L12 11L15 12L12 13L11 16L10 13L7 12L10 11L11 8Z" fill="var(--teal, #4ECDC4)" />
+      <path d="M20 20L16 16" stroke="var(--accent, #E07A5F)" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
 
-export function CalendarYearIcon({ className = '' }: { className?: string }) {
+export function BudgetTrackerIcon({ className = '' }: { className?: string }) {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      {/* Calendar body */}
-      <rect x="3" y="4" width="18" height="18" rx="3" />
-      {/* Header bar */}
-      <path d="M3 9h18" />
-      {/* Calendar pins */}
-      <path d="M8 2v4M16 2v4" />
-      {/* 12 dots representing months */}
-      <circle cx="7.5" cy="13" r="1" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="13" r="1" fill="currentColor" stroke="none" />
-      <circle cx="16.5" cy="13" r="1" fill="currentColor" stroke="none" />
-      <circle cx="7.5" cy="17" r="1" fill="currentColor" stroke="none" />
-      <circle cx="12" cy="17" r="1" fill="currentColor" stroke="none" />
-      <circle cx="16.5" cy="17" r="1" fill="currentColor" stroke="none" />
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={className}>
+      <rect x="3" y="6" width="18" height="12" rx="2" stroke="var(--accent, #E07A5F)" strokeWidth="2" />
+      <circle cx="12" cy="12" r="3" stroke="var(--teal, #4ECDC4)" strokeWidth="2" />
     </svg>
   );
 }
 
-export function ShieldIcon({ className = '' }: { className?: string }) {
+export function ExpertSupportIcon({ className = '' }: { className?: string }) {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      {/* Shield */}
-      <path d="M12 2L4 5.5v6.5c0 4.5 3.4 8.7 8 9.5 4.6-.8 8-5 8-9.5V5.5L12 2z" />
-      {/* Tick */}
-      <path d="M9 12l2 2 4-4" strokeWidth="2.2" />
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M12 21C16.9706 21 21 16.9706 21 12C21 7.02944 16.9706 3 12 3C7.02944 3 3 7.02944 3 12C3 13.5 3.5 15 4.5 16.5L3 21L7.5 19.5" stroke="var(--accent, #E07A5F)" strokeWidth="2" strokeLinecap="round" />
+      <path d="M9 12C9 12 10 13.5 12 13.5C14 13.5 15 12 15 12" stroke="var(--teal, #4ECDC4)" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
 
-export function EyeIcon({ className = '' }: { className?: string }) {
+export function PriceAlertIcon({ className = '' }: { className?: string }) {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      {/* Eye outline */}
-      <path d="M2 12c2-5 5.5-8 10-8s8 3 10 8c-2 5-5.5 8-10 8S4 17 2 12z" />
-      {/* Pupil */}
-      <circle cx="12" cy="12" r="3" />
-      {/* Sparkle top-right */}
-      <path d="M18 5l.5-1.5.5 1.5M19 3.5h-1" strokeWidth="1.5" />
-      {/* Sparkle small */}
-      <path d="M20 8l.3-1 .3 1M20.6 7.5h-.6" strokeWidth="1.3" />
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M18 8C18 4.68629 15.3137 2 12 2C8.68629 2 6 4.68629 6 8V11C6 13 4 15 4 15H20" stroke="var(--accent, #E07A5F)" strokeWidth="2" strokeLinecap="round" />
+      <path d="M10 19C10 20.1046 10.8954 21 12 21C13.1046 21 14 20.1046 14 19" stroke="var(--teal, #4ECDC4)" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }
 
-export function BellAlertIcon({ className = '' }: { className?: string }) {
+export function FlightDealsIcon({ className = '' }: { className?: string }) {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      {/* Bell body */}
-      <path d="M15 17H9a3 3 0 01-3-3V9a6 6 0 1112 0v5a3 3 0 01-3 3z" />
-      {/* Clapper */}
-      <path d="M10.5 17c0 .83.67 1.5 1.5 1.5s1.5-.67 1.5-1.5" />
-      {/* Radiating lines */}
-      <path d="M4 9.5C4 6 7.5 3 12 3M20 9.5C20 6 16.5 3 12 3" strokeOpacity="0.5" />
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M21 12L15 20H13L15 12H7L4 15H2L4 12L2 9H4L7 12H15L13 4H15L21 12Z" stroke="var(--accent, #E07A5F)" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="19" cy="19" r="3" stroke="var(--teal, #4ECDC4)" strokeWidth="2" />
     </svg>
   );
 }
 
-export function PackageIcon({ className = '' }: { className?: string }) {
+export function HotelFindsIcon({ className = '' }: { className?: string }) {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className={className}>
-      {/* Back ticket/card */}
-      <rect x="5" y="6" width="14" height="10" rx="2.5" strokeOpacity="0.4" />
-      {/* Front ticket/card */}
-      <rect x="3" y="8" width="14" height="10" rx="2.5" />
-      {/* Ticket perforation line */}
-      <path d="M3 13h14" strokeDasharray="2 2" />
-      {/* Plane icon on ticket */}
-      <path d="M8 11.5l2-1.5 2 1.5" strokeWidth="1.5" strokeOpacity="0.7" />
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M3 17V7C3 5.89543 3.89543 5 5 5H19C20.1046 5 21 5.89543 21 7V17" stroke="var(--accent, #E07A5F)" strokeWidth="2" strokeLinecap="round" />
+      <path d="M3 14H21" stroke="var(--accent, #E07A5F)" strokeWidth="2" strokeLinecap="round" />
+      <path d="M7 10H11" stroke="var(--teal, #4ECDC4)" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function EcoTravelIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M12 3C7.02944 3 3 7.02944 3 12C3 16.9706 7.02944 21 12 21" stroke="var(--accent, #E07A5F)" strokeWidth="2" strokeLinecap="round" />
+      <path d="M12 21V12C12 9 15 7 18 7" stroke="var(--teal, #4ECDC4)" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+export function LocalStaysIcon({ className = '' }: { className?: string }) {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" className={className}>
+      <path d="M3 10L12 3L21 10V20C21 20.5523 20.5523 21 20 21H4C3.44772 21 3 20.5523 3 20V10Z" stroke="var(--accent, #E07A5F)" strokeWidth="2" strokeLinecap="round" />
+      <path d="M9 21V12H15V21" stroke="var(--teal, #4ECDC4)" strokeWidth="2" strokeLinecap="round" />
     </svg>
   );
 }

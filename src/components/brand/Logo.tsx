@@ -6,34 +6,32 @@ interface LogoProps {
 }
 
 export default function Logo({ size = 32, className = '' }: LogoProps) {
+  const scale = size / 60;
   return (
     <svg
       width={size}
       height={size}
-      viewBox="0 0 40 40"
+      viewBox="0 0 60 60"
       fill="none"
       xmlns="http://www.w3.org/2000/svg"
       className={className}
       aria-hidden="true"
     >
-      {/* Globe */}
-      <circle cx="20" cy="20" r="14" stroke="currentColor" strokeWidth="2" />
-      <ellipse cx="20" cy="20" rx="8" ry="14" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M6 20h28" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M8 12h24" stroke="currentColor" strokeWidth="1" opacity="0.5" />
-      <path d="M8 28h24" stroke="currentColor" strokeWidth="1" opacity="0.5" />
-      {/* Travel route - dotted arc */}
+      {/* Outer dashed orbit — teal */}
       <path
-        d="M12 10C16 2 28 2 32 12"
-        stroke="var(--accent, #E07A5F)"
-        strokeWidth="2"
-        strokeDasharray="3 3"
+        d="M10 30C10 18.9543 18.9543 10 30 10C41.0457 10 50 18.9543 50 30C50 41.0457 41.0457 50 30 50"
+        stroke="var(--teal, #4ECDC4)"
+        strokeWidth="3"
         strokeLinecap="round"
-        fill="none"
+        strokeDasharray="0.1 6"
       />
-      {/* Pin/heart at destination */}
-      <circle cx="32" cy="12" r="3" fill="var(--accent, #E07A5F)" />
-      <circle cx="32" cy="12" r="1.5" fill="white" />
+      {/* Inner circle — coral */}
+      <circle cx="30" cy="30" r="12" stroke="var(--accent, #E07A5F)" strokeWidth="3" fill="none" />
+      {/* Map pin — coral */}
+      <path
+        d="M43 17C43 15.3431 44.3431 14 46 14C47.6569 14 49 15.3431 49 17C49 20 46 23 46 23C46 23 43 20 43 17Z"
+        fill="var(--accent, #E07A5F)"
+      />
     </svg>
   );
 }

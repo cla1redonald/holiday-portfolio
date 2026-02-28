@@ -1,59 +1,52 @@
 import {
-  PriceTagIcon,
-  CalendarYearIcon,
-  ShieldIcon,
-  EyeIcon,
-  BellAlertIcon,
-  PackageIcon,
+  HiddenGemsIcon,
+  BudgetTrackerIcon,
+  ExpertSupportIcon,
+  PriceAlertIcon,
+  FlightDealsIcon,
+  HotelFindsIcon,
 } from '@/components/icons/UspIcons';
 import { ComponentType } from 'react';
 
 interface UspItem {
   icon: ComponentType<{ className?: string }>;
-  iconColour: 'coral' | 'teal';
   title: string;
   description: string;
 }
 
 const usps: UspItem[] = [
   {
-    icon: PriceTagIcon,
-    iconColour: 'coral',
+    icon: HiddenGemsIcon,
     title: 'Price-first discovery',
     description:
       'Find great deals, not just destinations. Every price is scored against 90-day historic averages so you know when it\'s genuinely good.',
   },
   {
-    icon: CalendarYearIcon,
-    iconColour: 'teal',
+    icon: BudgetTrackerIcon,
     title: 'Your year of travel, planned',
     description:
       'Track your travel budget, trips booked, and what fits next. Not trip-by-trip — year-by-year. One view, no spreadsheets.',
   },
   {
-    icon: ShieldIcon,
-    iconColour: 'coral',
+    icon: ExpertSupportIcon,
     title: 'UK-native, ATOL-protected',
     description:
       'Built for UK travellers. Package holidays come with ATOL protection as standard. No small print surprises.',
   },
   {
-    icon: EyeIcon,
-    iconColour: 'teal',
+    icon: FlightDealsIcon,
     title: 'Visible preferences',
     description:
       'See exactly what we think you like — and correct us. Your preference profile is transparent, editable, and always yours.',
   },
   {
-    icon: BellAlertIcon,
-    iconColour: 'coral',
+    icon: PriceAlertIcon,
     title: 'Deal alerts that matter',
     description:
       'Porto hit £240 for your May dates? We\'ll tell you. Only deals YOU\'d actually want — not every deal on the internet.',
   },
   {
-    icon: PackageIcon,
-    iconColour: 'teal',
+    icon: HotelFindsIcon,
     title: 'Packages assembled for you',
     description:
       'Flights, hotels, transfers combined from the best sources. Better prices, less hassle, more time planning what to eat.',
@@ -78,10 +71,9 @@ export default function UspSection() {
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
           {usps.map((usp, index) => {
             const Icon = usp.icon;
-            const isCoral = usp.iconColour === 'coral';
-            const iconBg = isCoral
-              ? 'bg-accent/10 text-accent'
-              : 'bg-teal/10 text-teal';
+            const iconBg = index % 2 === 0
+              ? 'bg-accent/10'
+              : 'bg-teal/10';
             return (
               <div
                 key={index}
