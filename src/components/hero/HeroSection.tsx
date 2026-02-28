@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { useVariant } from '@/lib/useVariant';
 
 export default function HeroSection() {
@@ -38,6 +39,30 @@ export default function HeroSection() {
           <circle cx="200" cy="450" r="4" fill="var(--accent, #E07A5F)" opacity="0.4" />
           <circle cx="600" cy="380" r="5" fill="var(--teal, #4ECDC4)" opacity="0.5" />
         </svg>
+      </div>
+
+      {/* Floating decorative illustrations */}
+      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+        {/* Traveller group — left side, partially visible */}
+        <div className="hidden lg:block absolute left-6 xl:left-16 bottom-1/4 opacity-15">
+          <Image
+            src="/icons/traveller-group.png"
+            alt=""
+            width={200}
+            height={200}
+            className="w-40 xl:w-48 h-auto"
+          />
+        </div>
+        {/* Group travel icon — right side */}
+        <div className="hidden lg:block absolute right-6 xl:right-16 top-1/3 opacity-15">
+          <Image
+            src="/icons/group-travel.png"
+            alt=""
+            width={160}
+            height={160}
+            className="w-32 xl:w-40 h-auto"
+          />
+        </div>
       </div>
 
       <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center pt-16">

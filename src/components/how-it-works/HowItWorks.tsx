@@ -1,24 +1,26 @@
+import Image from 'next/image';
+
 const steps = [
   {
     number: '01',
-    icon: '💬',
-    title: 'Tell us how you travel',
+    icon: '/icons/local-experiences.png',
+    title: 'Dream & Discover',
     description:
-      "Type naturally — 'somewhere warm, great food, under £400'. No filters, no dropdowns. Just say what you want.",
+      "Let your curiosity lead. Tell Roami what moves you — quiet mountain mornings or neon-lit street food. Our friendly AI curates hidden gems, smart flights, and stays that feel like home. No more endless tabs.",
   },
   {
     number: '02',
-    icon: '🎯',
-    title: 'Deals scored for you',
+    icon: '/icons/flight-deals.png',
+    title: 'Roam without the friction',
     description:
-      'Every deal gets a confidence score based on YOUR preferences, not just price. See exactly why we think it\'s a good fit.',
+      'Leave the logistics-stress at home. Navigate like a local with offline maps, get real-time visa guidance, and track your budget in a snap. We keep the path clear so you can keep your eyes on the horizon.',
   },
   {
     number: '03',
-    icon: '🧠',
-    title: 'Your feed gets smarter',
+    icon: '/icons/travel-journal.png',
+    title: 'Write your own story',
     description:
-      'The more you search, the better we know you. Your deal feed becomes uniquely yours — no two feeds look the same.',
+      'Every mile is a memory. Save the secret spots you found, coordinate with your crew, and archive the stories that matter. You do the wandering; we\'ll help you keep the magic.',
   },
 ];
 
@@ -29,26 +31,32 @@ export default function HowItWorks() {
         {/* Header */}
         <div className="text-center mb-14">
           <h2 className="font-display text-3xl sm:text-4xl font-bold text-foreground mb-3">
-            How it works
+            Your journey in 3 simple steps
           </h2>
           <p className="text-lg text-secondary max-w-lg mx-auto">
-            Three steps from idea to itinerary — in seconds, not hours.
+            From daydream to departure — effortlessly.
           </p>
         </div>
 
         {/* Steps */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-8 relative">
           {/* Connecting line (desktop) */}
-          <div className="hidden md:block absolute top-10 left-[16.66%] right-[16.66%] h-px bg-border" aria-hidden="true" />
+          <div className="hidden md:block absolute top-14 left-[16.66%] right-[16.66%] h-px bg-border" aria-hidden="true" />
 
           {steps.map((step, index) => (
             <div key={step.number} className="relative flex flex-col items-center text-center">
               {/* Step number + icon */}
               <div className="relative mb-6">
-                <div className="w-20 h-20 rounded-2xl bg-surface border-2 border-border flex items-center justify-center text-3xl shadow-sm z-10 relative">
-                  {step.icon}
+                <div className="w-24 h-24 rounded-2xl bg-surface border-2 border-border flex items-center justify-center shadow-sm z-10 relative overflow-hidden">
+                  <Image
+                    src={step.icon}
+                    alt=""
+                    width={64}
+                    height={64}
+                    className="w-16 h-16 object-contain"
+                  />
                 </div>
-                <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-teal text-white text-xs font-bold flex items-center justify-center z-20">
+                <span className="absolute -top-2 -right-2 w-7 h-7 rounded-full bg-teal text-white text-xs font-bold flex items-center justify-center z-20 shadow-sm">
                   {index + 1}
                 </span>
               </div>

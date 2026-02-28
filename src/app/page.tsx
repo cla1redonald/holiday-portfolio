@@ -7,6 +7,7 @@ import HeroSection from '@/components/hero/HeroSection';
 import NlpSearchDemo from '@/components/demo/NlpSearchDemo';
 import HowItWorks from '@/components/how-it-works/HowItWorks';
 import UspSection from '@/components/usps/UspSection';
+import FeatureShowcase from '@/components/features/FeatureShowcase';
 import WaitlistForm from '@/components/waitlist/WaitlistForm';
 import TravelRoute from '@/components/brand/TravelRoute';
 
@@ -24,6 +25,8 @@ function HomeContent() {
         <HowItWorks />
         <TravelRoute />
         <UspSection />
+        <TravelRoute />
+        <FeatureShowcase />
         <TravelRoute />
         <WaitlistForm lastQuery={lastQuery} />
       </main>

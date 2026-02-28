@@ -1,5 +1,6 @@
 'use client';
 
+import Image from 'next/image';
 import { FormEvent, useState } from 'react';
 
 interface WaitlistFormProps {
@@ -49,14 +50,21 @@ export default function WaitlistForm({ lastQuery = '' }: WaitlistFormProps) {
 
   if (status === 'success') {
     return (
-      <section id="waitlist" className="py-20 bg-accent">
-        <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center">
-          <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-3xl mx-auto mb-6">
-            🎉
+      <section id="waitlist" className="py-20 bg-accent relative overflow-hidden">
+        {/* Decorative illustrations */}
+        <div className="absolute left-4 sm:left-8 top-1/2 -translate-y-1/2 opacity-15 pointer-events-none" aria-hidden="true">
+          <Image src="/icons/heart-sparkle.png" alt="" width={120} height={120} className="w-20 sm:w-28 h-auto" />
+        </div>
+        <div className="absolute right-4 sm:right-8 top-1/2 -translate-y-1/2 opacity-15 pointer-events-none" aria-hidden="true">
+          <Image src="/icons/traveller-group.png" alt="" width={120} height={120} className="w-20 sm:w-28 h-auto" />
+        </div>
+        <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center relative">
+          <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center mx-auto mb-6 overflow-hidden">
+            <Image src="/icons/heart-sparkle.png" alt="" width={48} height={48} className="w-12 h-12 object-contain" />
           </div>
-          <h2 className="font-display text-3xl font-bold text-white mb-3">Welcome to Roami!</h2>
+          <h2 className="font-display text-3xl font-bold text-white mb-3">Welcome aboard!</h2>
           <p className="text-white/80 text-lg">
-            You&apos;re on the list. We&apos;ll let you know as soon as we launch — keep an eye on your inbox.
+            You&apos;re on the list. We&apos;ll be in touch when it&apos;s time to set off — keep an eye on your inbox.
           </p>
         </div>
       </section>
@@ -64,14 +72,22 @@ export default function WaitlistForm({ lastQuery = '' }: WaitlistFormProps) {
   }
 
   return (
-    <section id="waitlist" className="py-20 bg-accent">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center">
+    <section id="waitlist" className="py-20 bg-accent relative overflow-hidden">
+      {/* Decorative floating illustrations */}
+      <div className="absolute left-4 sm:left-10 top-1/2 -translate-y-1/2 opacity-15 pointer-events-none" aria-hidden="true">
+        <Image src="/icons/heart-sparkle.png" alt="" width={140} height={140} className="w-24 sm:w-32 h-auto" />
+      </div>
+      <div className="absolute right-4 sm:right-10 top-1/2 -translate-y-1/2 opacity-15 pointer-events-none" aria-hidden="true">
+        <Image src="/icons/traveller-group.png" alt="" width={140} height={140} className="w-24 sm:w-32 h-auto" />
+      </div>
+
+      <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center relative">
         {/* Header */}
         <h2 className="font-display text-3xl sm:text-4xl font-bold text-white mb-3">
-          Be first when we launch
+          Ready to roam?
         </h2>
         <p className="text-white/80 text-lg mb-10">
-          Join the waitlist and get early access, founder pricing, and no spam.
+          Join the waitlist for early access and founder pricing. Your next adventure starts here.
         </p>
 
         {/* Form */}
