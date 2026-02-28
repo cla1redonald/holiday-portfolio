@@ -1,0 +1,39 @@
+'use client';
+
+import { useEffect, useState } from 'react';
+
+export default function Header() {
+  const [scrolled, setScrolled] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => setScrolled(window.scrollY > 20);
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollToWaitlist = () => {
+    document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
+  };
+
+  return (
+    <header
+      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
+        scrolled ? 'bg-surface shadow-sm border-b border-border' : 'bg-transparent'
+      }`}
+    >
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <span className="text-xl font-semibold text-foreground tracking-tight">
+            Holiday Portfolio
+          </span>
+        </div>
+        <button
+          onClick={scrollToWaitlist}
+          className="bg-accent hover:bg-accent-hover text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors duration-200 cursor-pointer"
+        >
+          Join Waitlist
+        </button>
+      </div>
+    </header>
+  );
+}
