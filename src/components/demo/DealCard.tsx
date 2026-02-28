@@ -8,14 +8,15 @@ interface DealCardProps {
 }
 
 function ConfidenceBadge({ score }: { score: number }) {
+  // Teal for high confidence, yellow for medium, red for low
   const color =
-    score >= 85 ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-    score >= 70 ? 'bg-amber-50 text-amber-700 border-amber-200' :
+    score >= 85 ? 'bg-teal/10 text-teal border-teal/30' :
+    score >= 70 ? 'bg-yellow/20 text-amber-700 border-yellow/50' :
     'bg-red-50 text-red-700 border-red-200';
 
   const dot =
-    score >= 85 ? 'bg-emerald-500' :
-    score >= 70 ? 'bg-amber-500' :
+    score >= 85 ? 'bg-teal' :
+    score >= 70 ? 'bg-yellow' :
     'bg-red-500';
 
   return (
@@ -35,7 +36,7 @@ export default function DealCard({ deal }: DealCardProps) {
   };
 
   return (
-    <article aria-label={`${deal.destination} deal at ${deal.hotel}`} className="bg-surface rounded-2xl border border-border shadow-sm hover:shadow-md transition-all duration-200 overflow-hidden flex flex-col group">
+    <article aria-label={`${deal.destination} deal at ${deal.hotel}`} className="bg-surface rounded-3xl border border-border card-shadow hover:card-shadow-hover transition-all duration-200 overflow-hidden flex flex-col group hover:-translate-y-1">
       {/* Image */}
       <div className="relative h-44 overflow-hidden">
         <Image
@@ -92,7 +93,7 @@ export default function DealCard({ deal }: DealCardProps) {
           {deal.tags.slice(0, 4).map((tag) => (
             <span
               key={tag}
-              className="text-xs px-2 py-0.5 rounded-full bg-background border border-border text-secondary capitalize"
+              className="text-xs px-2 py-0.5 rounded-full bg-muted border border-border text-secondary capitalize"
             >
               {tag}
             </span>

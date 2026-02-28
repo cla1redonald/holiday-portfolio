@@ -29,7 +29,7 @@ export default function PreferencePanel({ preferences }: PreferencePanelProps) {
               <div className="flex items-center gap-1.5 mt-1">
                 <div className="w-20 h-1.5 bg-border rounded-full overflow-hidden">
                   <div
-                    className="h-full bg-accent rounded-full transition-all duration-700"
+                    className="h-full bg-teal rounded-full transition-all duration-700"
                     style={{ width: `${Math.round(pref.confidence * 100)}%` }}
                   />
                 </div>

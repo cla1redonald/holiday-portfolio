@@ -5,7 +5,7 @@ export const variants: Record<string, VariantConfig> = {
     id: 'a',
     headline: 'Find your next city break deal — stop overpaying',
     subheadline:
-      'Holiday Portfolio learns how you travel, finds deals you\'d actually love, and tells you if the price is right.',
+      'Roami learns how you travel, finds deals you\'d actually love, and tells you if the price is right.',
   },
   b: {
     id: 'b',

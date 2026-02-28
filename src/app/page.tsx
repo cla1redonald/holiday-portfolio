@@ -8,6 +8,7 @@ import NlpSearchDemo from '@/components/demo/NlpSearchDemo';
 import HowItWorks from '@/components/how-it-works/HowItWorks';
 import UspSection from '@/components/usps/UspSection';
 import WaitlistForm from '@/components/waitlist/WaitlistForm';
+import TravelRoute from '@/components/brand/TravelRoute';
 
 function HomeContent() {
   const [lastQuery, setLastQuery] = useState('');
@@ -17,9 +18,13 @@ function HomeContent() {
       <Header />
       <main>
         <HeroSection />
+        <TravelRoute />
         <NlpSearchDemo onQueryChange={setLastQuery} />
+        <TravelRoute />
         <HowItWorks />
+        <TravelRoute />
         <UspSection />
+        <TravelRoute />
         <WaitlistForm lastQuery={lastQuery} />
       </main>
       <Footer />

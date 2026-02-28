@@ -43,7 +43,7 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Section header */}
         <div className="text-center mb-12">
-          <h2 id="demo-heading" className="text-3xl sm:text-4xl font-bold text-foreground mb-3">
+          <h2 id="demo-heading" className="font-display text-3xl sm:text-4xl font-bold text-foreground mb-3">
             See it in action
           </h2>
           <p className="text-lg text-secondary max-w-xl mx-auto">
@@ -66,7 +66,7 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
         {loading && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-5">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="bg-surface rounded-2xl border border-border overflow-hidden animate-pulse">
+              <div key={i} className="bg-surface rounded-3xl border border-border overflow-hidden animate-pulse">
                 <div className="h-44 bg-border" />
                 <div className="p-4 space-y-3">
                   <div className="h-4 bg-border rounded w-2/3" />
@@ -92,7 +92,7 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
           </>
         )}
 
-        {/* Empty state (shouldn't happen with fallback, but just in case) */}
+        {/* Empty state */}
         {!loading && hasSearched && deals.length === 0 && (
           <div className="text-center py-12 text-secondary">
             <p className="text-lg">No deals found. Try a different search.</p>

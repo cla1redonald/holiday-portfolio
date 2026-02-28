@@ -11,23 +11,44 @@ export default function HeroSection() {
 
   return (
     <section className="relative min-h-[85vh] flex items-center justify-center overflow-hidden bg-background">
-      {/* Decorative background pattern */}
+      {/* Decorative travel route background pattern */}
       <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
-        <div className="absolute top-1/4 -right-32 w-96 h-96 rounded-full bg-accent opacity-5 blur-3xl" />
-        <div className="absolute bottom-1/4 -left-32 w-80 h-80 rounded-full bg-accent opacity-5 blur-3xl" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full border border-border opacity-30" />
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[900px] h-[900px] rounded-full border border-border opacity-15" />
+        {/* Dotted curved routes */}
+        <svg className="absolute top-0 left-0 w-full h-full opacity-30" preserveAspectRatio="xMidYMid slice">
+          <path
+            d="M-50 200 C100 80 250 320 450 150 C650 -20 800 280 1000 180"
+            stroke="var(--border)"
+            strokeWidth="2"
+            strokeDasharray="8 6"
+            strokeLinecap="round"
+            fill="none"
+          />
+          <path
+            d="M-100 500 C150 380 300 600 500 450 C700 300 850 520 1100 400"
+            stroke="var(--border)"
+            strokeWidth="2"
+            strokeDasharray="8 6"
+            strokeLinecap="round"
+            fill="none"
+          />
+          {/* Small dots at route endpoints */}
+          <circle cx="120" cy="110" r="5" fill="var(--teal, #4ECDC4)" opacity="0.6" />
+          <circle cx="450" cy="150" r="5" fill="var(--accent, #E07A5F)" opacity="0.6" />
+          <circle cx="850" cy="220" r="4" fill="var(--teal, #4ECDC4)" opacity="0.5" />
+          <circle cx="200" cy="450" r="4" fill="var(--accent, #E07A5F)" opacity="0.4" />
+          <circle cx="600" cy="380" r="5" fill="var(--teal, #4ECDC4)" opacity="0.5" />
+        </svg>
       </div>
 
       <div className="relative max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center pt-16">
         {/* Badge */}
-        <div className="inline-flex items-center gap-2 bg-surface border border-border rounded-full px-4 py-1.5 text-sm text-secondary mb-8 shadow-sm">
+        <div className="inline-flex items-center gap-2 bg-surface border border-teal rounded-full px-4 py-1.5 text-sm text-secondary mb-8 shadow-sm">
           <span className="w-2 h-2 rounded-full bg-accent animate-pulse" />
           <span>Early access — join the waitlist</span>
         </div>
 
         {/* Headline */}
-        <h1 className="text-4xl sm:text-5xl md:text-6xl font-bold text-foreground tracking-tight leading-[1.1] mb-6">
+        <h1 className="font-display text-4xl sm:text-5xl md:text-6xl font-bold text-foreground tracking-tight leading-[1.1] mb-6">
           {(() => {
             const parts = variant.headline.split(' — ');
             return parts.length > 1 ? (
@@ -72,7 +93,7 @@ export default function HeroSection() {
         <div className="mt-16 flex justify-center">
           <button
             onClick={scrollToDemo}
-            className="flex flex-col items-center gap-2 text-secondary hover:text-accent transition-colors cursor-pointer"
+            className="flex flex-col items-center gap-2 text-secondary hover:text-teal transition-colors cursor-pointer"
             aria-label="Scroll to demo"
           >
             <span className="text-xs uppercase tracking-widest">See the demo</span>

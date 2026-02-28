@@ -24,11 +24,11 @@ const steps = [
 
 export default function HowItWorks() {
   return (
-    <section className="py-20 bg-surface border-t border-b border-border">
+    <section className="py-20 bg-muted border-t border-b border-border">
       <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
         {/* Header */}
         <div className="text-center mb-14">
-          <h2 className="text-3xl sm:text-4xl font-bold text-foreground mb-3">
+          <h2 className="font-display text-3xl sm:text-4xl font-bold text-foreground mb-3">
             How it works
           </h2>
           <p className="text-lg text-secondary max-w-lg mx-auto">
@@ -45,10 +45,10 @@ export default function HowItWorks() {
             <div key={step.number} className="relative flex flex-col items-center text-center">
               {/* Step number + icon */}
               <div className="relative mb-6">
-                <div className="w-20 h-20 rounded-2xl bg-background border-2 border-border flex items-center justify-center text-3xl shadow-sm z-10 relative">
+                <div className="w-20 h-20 rounded-2xl bg-surface border-2 border-border flex items-center justify-center text-3xl shadow-sm z-10 relative">
                   {step.icon}
                 </div>
-                <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-accent text-white text-xs font-bold flex items-center justify-center z-20">
+                <span className="absolute -top-2 -right-2 w-6 h-6 rounded-full bg-teal text-white text-xs font-bold flex items-center justify-center z-20">
                   {index + 1}
                 </span>
               </div>

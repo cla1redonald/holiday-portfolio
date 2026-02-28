@@ -1,6 +1,13 @@
 import type { Metadata } from "next";
-import { Inter, JetBrains_Mono } from "next/font/google";
+import { DM_Sans, Inter, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+
+const dmSans = DM_Sans({
+  variable: "--font-dm-sans",
+  subsets: ["latin"],
+  display: "swap",
+  weight: ["400", "500", "600", "700", "800"],
+});
 
 const inter = Inter({
   variable: "--font-inter",
@@ -15,20 +22,20 @@ const jetbrainsMono = JetBrains_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Holiday Portfolio — Your Year of Travel, Planned",
+  title: "Roami — Your World, Better Explored",
   description:
-    "Holiday Portfolio helps you plan, track, and optimise your year of travel — personalised itineraries, budget insights, and destination discovery in one place.",
+    "Roami learns how you travel, finds city break deals you'd love, and tells you if the price is right. No filters, no dropdowns — just say what you want.",
   openGraph: {
-    title: "Holiday Portfolio — Your Year of Travel, Planned",
+    title: "Roami — Your World, Better Explored",
     description:
-      "A deal feed that actually knows how you travel. City breaks scored for you, not just by price.",
+      "Roami learns how you travel, finds city break deals you'd love, and tells you if the price is right. No filters, no dropdowns — just say what you want.",
     type: "website",
   },
   twitter: {
     card: "summary_large_image",
-    title: "Holiday Portfolio — Your Year of Travel, Planned",
+    title: "Roami — Your World, Better Explored",
     description:
-      "A deal feed that actually knows how you travel. City breaks scored for you, not just by price.",
+      "Roami learns how you travel, finds city break deals you'd love, and tells you if the price is right. No filters, no dropdowns — just say what you want.",
   },
 };
 
@@ -40,7 +47,7 @@ export default function RootLayout({
   return (
     <html lang="en">
       <body
-        className={`${inter.variable} ${jetbrainsMono.variable} antialiased`}
+        className={`${dmSans.variable} ${inter.variable} ${jetbrainsMono.variable} antialiased`}
       >
         {children}
       </body>

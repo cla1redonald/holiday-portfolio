@@ -1,18 +1,24 @@
 @import "tailwindcss";
 
 :root {
-  /* Light theme — warm travel aesthetic */
-  --background: #FAFAF8;
-  --foreground: #2D3436;
+  /* Roami brand palette */
+  --background: #FBF9F6;
+  --foreground: #1A1A2E;
   --accent: #E07A5F;
   --accent-hover: #C9674E;
-  --secondary: #8A8888;
+  --teal: #4ECDC4;
+  --teal-hover: #3DB8B0;
+  --yellow: #FFE66D;
+  --yellow-hover: #F5D84E;
+  --secondary: #6B7280;
   --surface: #FFFFFF;
   --border: #E8E6E3;
+  --muted: #F3F1EE;
 
   /* Font variables */
   --font-sans: var(--font-inter);
   --font-mono: var(--font-jetbrains-mono);
+  --font-display: var(--font-dm-sans);
 }
 
 @theme inline {
@@ -20,11 +26,17 @@
   --color-foreground: var(--foreground);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
+  --color-teal: var(--teal);
+  --color-teal-hover: var(--teal-hover);
+  --color-yellow: var(--yellow);
+  --color-yellow-hover: var(--yellow-hover);
   --color-secondary: var(--secondary);
   --color-surface: var(--surface);
   --color-border: var(--border);
+  --color-muted: var(--muted);
   --font-sans: var(--font-inter);
   --font-mono: var(--font-jetbrains-mono);
+  --font-display: var(--font-dm-sans);
 }
 
 html {
@@ -58,4 +70,23 @@ body {
 
 .font-mono {
   font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
+}
+
+.font-display {
+  font-family: var(--font-dm-sans), system-ui, sans-serif;
+}
+
+.text-gradient {
+  background: linear-gradient(135deg, var(--accent), var(--teal));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.card-shadow {
+  box-shadow: 0 1px 3px rgba(26, 26, 46, 0.04), 0 8px 24px rgba(26, 26, 46, 0.06);
+}
+
+.card-shadow-hover {
+  box-shadow: 0 4px 12px rgba(26, 26, 46, 0.06), 0 16px 40px rgba(26, 26, 46, 0.1);
 }

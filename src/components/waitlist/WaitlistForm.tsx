@@ -54,9 +54,9 @@ export default function WaitlistForm({ lastQuery = '' }: WaitlistFormProps) {
           <div className="w-16 h-16 rounded-2xl bg-white/20 flex items-center justify-center text-3xl mx-auto mb-6">
             🎉
           </div>
-          <h2 className="text-3xl font-bold text-white mb-3">You&apos;re on the list!</h2>
+          <h2 className="font-display text-3xl font-bold text-white mb-3">Welcome to Roami!</h2>
           <p className="text-white/80 text-lg">
-            We&apos;ll let you know when Holiday Portfolio launches. Keep an eye on your inbox.
+            You&apos;re on the list. We&apos;ll let you know as soon as we launch — keep an eye on your inbox.
           </p>
         </div>
       </section>
@@ -67,7 +67,7 @@ export default function WaitlistForm({ lastQuery = '' }: WaitlistFormProps) {
     <section id="waitlist" className="py-20 bg-accent">
       <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center">
         {/* Header */}
-        <h2 className="text-3xl sm:text-4xl font-bold text-white mb-3">
+        <h2 className="font-display text-3xl sm:text-4xl font-bold text-white mb-3">
           Be first when we launch
         </h2>
         <p className="text-white/80 text-lg mb-10">
@@ -111,7 +111,7 @@ export default function WaitlistForm({ lastQuery = '' }: WaitlistFormProps) {
 
         {/* GDPR note */}
         <p className="mt-5 text-white/60 text-xs">
-          We&apos;ll only email you about Holiday Portfolio. Unsubscribe anytime. No spam, ever.
+          We&apos;ll only email you about Roami. Unsubscribe anytime. No spam, ever.
         </p>
       </div>
     </section>

@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState } from 'react';
+import Wordmark from '@/components/brand/Wordmark';
 
 export default function Header() {
   const [scrolled, setScrolled] = useState(false);
@@ -22,8 +23,8 @@ export default function Header() {
       }`}
     >
       <nav aria-label="Main" className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-        <a href="#" className="text-xl font-semibold text-foreground tracking-tight hover:text-accent transition-colors">
-          Holiday Portfolio
+        <a href="#" className="text-foreground hover:text-accent transition-colors">
+          <Wordmark size="md" />
         </a>
         <button
           onClick={scrollToWaitlist}
