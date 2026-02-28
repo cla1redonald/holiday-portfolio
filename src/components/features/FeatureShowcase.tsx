@@ -31,7 +31,7 @@ const pillars = [
   {
     title: 'Travel Your Way',
     features: [
-      { icon: '/icons/traveller-group.png', label: 'Solo' },
+      { icon: '/icons/heart-sparkle.png', label: 'Solo' },
       { icon: '/icons/group-travel.png', label: 'Group' },
       { icon: '/icons/travel-journal.png', label: 'Journal' },
       { icon: '/icons/expert-support.png', label: 'Support' },
