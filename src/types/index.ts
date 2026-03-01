@@ -18,6 +18,10 @@ export interface Deal {
   priceContext?: PriceContext;
   source?: 'duffel' | 'mock';
   alternativeFlights?: FlightOffer[];
+  /** Net margin in GBP (negative = loss-maker). Only set for Duffel deals. */
+  netMargin?: number;
+  /** True if this deal costs us more than we earn */
+  isLossMaker?: boolean;
 }
 
 export interface SearchResult {

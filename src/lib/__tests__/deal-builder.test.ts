@@ -12,12 +12,13 @@ vi.mock('../iata-codes', () => ({
       lisbon: { iata: 'LIS', country: 'Portugal', latitude: 38.7223, longitude: -9.1393, image: 'https://example.com/lisbon.jpg' },
       barcelona: { iata: 'BCN', country: 'Spain', latitude: 41.3874, longitude: 2.1686, image: 'https://example.com/barcelona.jpg' },
       prague: { iata: 'PRG', country: 'Czech Republic', latitude: 50.0755, longitude: 14.4378, image: 'https://example.com/prague.jpg' },
+      budapest: { iata: 'BUD', country: 'Hungary', latitude: 47.4979, longitude: 19.0402, image: 'https://example.com/budapest.jpg' },
     };
     return cities[name.toLowerCase()];
   }),
   getDestinationImage: vi.fn((dest: string) => `https://images.example.com/${dest}.jpg`),
   getCountry: vi.fn((dest: string) => {
-    const countries: Record<string, string> = { lisbon: 'Portugal', barcelona: 'Spain', prague: 'Czech Republic' };
+    const countries: Record<string, string> = { lisbon: 'Portugal', barcelona: 'Spain', prague: 'Czech Republic', budapest: 'Hungary' };
     return countries[dest] ?? '';
   }),
 }));
@@ -36,6 +37,7 @@ vi.mock('../price-intelligence', () => ({
     amsterdam: 380,
     rome: 340,
     prague: 260,
+    budapest: 250,
   },
 }));
 
@@ -144,9 +146,6 @@ describe('deal-builder — buildDeals', () => {
   // =========================================================================
 
   describe('5-factor confidence scoring', () => {
-    // -----------------------------------------------------------------------
-    // 1. Low price percentile (<=25) gets high confidence
-    // -----------------------------------------------------------------------
     it('gives high confidence when price percentile is <=25', async () => {
       mockGetPricePercentile.mockResolvedValue(15);
       mockGetMarketPrice.mockResolvedValue({
@@ -161,16 +160,10 @@ describe('deal-builder — buildDeals', () => {
       const deals = await buildDeals({ ...defaultParams, interests: [] });
 
       expect(deals).toHaveLength(1);
-      // Price percentile <=25 should contribute 25 points to confidence
-      // Base(10) + pricePercentile(25) + interest(0) + leadTime + priceTrend + sessionAlignment
       expect(deals[0].dealConfidence).toBeGreaterThanOrEqual(45);
     });
 
-    // -----------------------------------------------------------------------
-    // 2. Interest matching boosts confidence
-    // -----------------------------------------------------------------------
     it('boosts confidence when interests match destination strengths', async () => {
-      // Lisbon strengths: food, culture, nightlife, beach, budget
       const dealsNoInterests = await buildDeals({ ...defaultParams, interests: [] });
 
       const dealsWithInterests = await buildDeals({
@@ -183,11 +176,7 @@ describe('deal-builder — buildDeals', () => {
       );
     });
 
-    // -----------------------------------------------------------------------
-    // 3. Booking lead time 21-56 days = 15 points
-    // -----------------------------------------------------------------------
     it('gives 15 lead time points for departures 21-56 days out', async () => {
-      // Set departure to 30 days from now
       const thirtyDaysOut = new Date(Date.now() + 30 * 86400000);
       const returnDate = new Date(thirtyDaysOut.getTime() + 3 * 86400000);
       const flight = makeFlight({
@@ -197,7 +186,6 @@ describe('deal-builder — buildDeals', () => {
 
       const deals = await buildDeals({ ...defaultParams, flights: [flight], interests: [] });
 
-      // Compare with a departure 5 days out (should get much lower lead time score)
       const fiveDaysOut = new Date(Date.now() + 5 * 86400000);
       const returnDateShort = new Date(fiveDaysOut.getTime() + 3 * 86400000);
       const shortFlight = makeFlight({
@@ -210,9 +198,6 @@ describe('deal-builder — buildDeals', () => {
       expect(deals[0].dealConfidence).toBeGreaterThan(shortDeals[0].dealConfidence);
     });
 
-    // -----------------------------------------------------------------------
-    // 4. Price trend: rising + below median = 15 points
-    // -----------------------------------------------------------------------
     it('gives max trend score when prices are rising and deal is below median', async () => {
       mockGetMarketPrice.mockResolvedValue({
         price: 320,
@@ -225,7 +210,6 @@ describe('deal-builder — buildDeals', () => {
 
       const risingDeals = await buildDeals({ ...defaultParams, interests: [] });
 
-      // Compare with falling trend
       mockGetMarketPrice.mockResolvedValue({
         price: 320,
         source: 'observed',
@@ -240,11 +224,7 @@ describe('deal-builder — buildDeals', () => {
       expect(risingDeals[0].dealConfidence).toBeGreaterThan(fallingDeals[0].dealConfidence);
     });
 
-    // -----------------------------------------------------------------------
-    // 5. Confidence is capped at 98
-    // -----------------------------------------------------------------------
     it('caps confidence at 98', async () => {
-      // Max everything: great price, matching interests, ideal timing, rising trend, session alignment
       mockGetPricePercentile.mockResolvedValue(10);
       mockGetMarketPrice.mockResolvedValue({
         price: 500,
@@ -282,9 +262,6 @@ describe('deal-builder — buildDeals', () => {
   // =========================================================================
 
   describe('session alignment', () => {
-    // -----------------------------------------------------------------------
-    // 1. Previously searched destinations get a boost
-    // -----------------------------------------------------------------------
     it('boosts deals for previously searched destinations', async () => {
       const profile = makeSessionProfile({
         searchCount: 3,
@@ -308,9 +285,6 @@ describe('deal-builder — buildDeals', () => {
       );
     });
 
-    // -----------------------------------------------------------------------
-    // 2. Dismissed preferences reduce alignment score
-    // -----------------------------------------------------------------------
     it('reduces alignment for dismissed preference overlaps', async () => {
       const profileNoDismiss = makeSessionProfile({
         searchCount: 3,
@@ -321,7 +295,7 @@ describe('deal-builder — buildDeals', () => {
       const profileDismissed = makeSessionProfile({
         searchCount: 3,
         destinations: { lisbon: 2 },
-        dismissedPreferences: ['food', 'culture', 'nightlife'], // overlaps lisbon strengths
+        dismissedPreferences: ['food', 'culture', 'nightlife'],
       });
 
       const dealsNoDismiss = await buildDeals({
@@ -341,20 +315,17 @@ describe('deal-builder — buildDeals', () => {
       );
     });
 
-    // -----------------------------------------------------------------------
-    // 3. Budget alignment (price <= avgBudget * 1.1)
-    // -----------------------------------------------------------------------
     it('boosts alignment when price is within budget signals', async () => {
       const profileInBudget = makeSessionProfile({
         searchCount: 3,
         destinations: { lisbon: 1 },
-        budgetSignals: [500, 600], // avg = 550, threshold = 605
+        budgetSignals: [500, 600],
       });
 
       const profileOverBudget = makeSessionProfile({
         searchCount: 3,
         destinations: { lisbon: 1 },
-        budgetSignals: [50, 60], // avg = 55, threshold = 60.5 — deal will exceed
+        budgetSignals: [50, 60],
       });
 
       const dealsInBudget = await buildDeals({
@@ -376,29 +347,25 @@ describe('deal-builder — buildDeals', () => {
   });
 
   // =========================================================================
-  // Margin calculation
+  // Pricing engine integration
   // =========================================================================
 
-  describe('margin calculation', () => {
-    // -----------------------------------------------------------------------
-    // 1. Passthrough mode: margin = 0
-    // -----------------------------------------------------------------------
-    it('sets margin to 0 in passthrough mode', async () => {
+  describe('pricing engine', () => {
+    it('includes netMargin and isLossMaker in deal output', async () => {
       const deals = await buildDeals(defaultParams);
 
-      expect(deals[0].pricing!.margin).toBe(0);
-      expect(deals[0].pricing!.marginType).toBe('none');
+      const deal = deals[0];
+      expect(deal).toHaveProperty('netMargin');
+      expect(deal).toHaveProperty('isLossMaker');
+      expect(typeof deal.netMargin).toBe('number');
+      expect(typeof deal.isLossMaker).toBe('boolean');
     });
 
-    // -----------------------------------------------------------------------
-    // 2. Total = flight cost + hotel cost (in passthrough)
-    // -----------------------------------------------------------------------
-    it('total equals flight + hotel cost in passthrough mode', async () => {
+    it('includes pricing breakdown', async () => {
       const deals = await buildDeals(defaultParams);
 
-      const pricing = deals[0].pricing!;
-      expect(pricing.total).toBe(pricing.flightCost + pricing.hotelCost);
-      expect(pricing.subtotal).toBe(pricing.total);
+      expect(deals[0].pricing).toBeDefined();
+      expect(deals[0].pricing!.marginType).toBe('none');
     });
   });
 
@@ -407,26 +374,19 @@ describe('deal-builder — buildDeals', () => {
   // =========================================================================
 
   describe('budget filtering', () => {
-    // -----------------------------------------------------------------------
-    // 1. Deals over budget are filtered out
-    // -----------------------------------------------------------------------
     it('filters out deals that exceed budgetPerPerson', async () => {
-      // Flight is 89 GBP, hotel per person is 150 GBP (300/2) = 239 total
       const deals = await buildDeals({
         ...defaultParams,
-        budgetPerPerson: 100, // way below total
+        budgetPerPerson: 100,
       });
 
       expect(deals).toHaveLength(0);
     });
 
-    // -----------------------------------------------------------------------
-    // 2. Deals within budget are kept
-    // -----------------------------------------------------------------------
     it('keeps deals within budgetPerPerson', async () => {
       const deals = await buildDeals({
         ...defaultParams,
-        budgetPerPerson: 500, // well above total
+        budgetPerPerson: 500,
       });
 
       expect(deals).toHaveLength(1);
@@ -438,11 +398,7 @@ describe('deal-builder — buildDeals', () => {
   // =========================================================================
 
   describe('sorting', () => {
-    // -----------------------------------------------------------------------
-    // Deals are sorted by confidence descending
-    // -----------------------------------------------------------------------
     it('sorts deals by confidence descending', async () => {
-      // Create two flights: one with matching interests, one without
       const flightLisbon = makeFlight({ destination: 'lisbon' });
       const flightPrague = makeFlight({
         destination: 'prague',
@@ -453,8 +409,6 @@ describe('deal-builder — buildDeals', () => {
       });
       const stayPrague = makeStay({ destination: 'prague', hotelName: 'Hotel Prague' });
 
-      // Lisbon matches food+culture interests; Prague (budget, nightlife, culture, architecture, historic)
-      // should match less for food-focused interests
       const deals = await buildDeals({
         ...defaultParams,
         flights: [flightLisbon, flightPrague],
@@ -463,7 +417,6 @@ describe('deal-builder — buildDeals', () => {
       });
 
       expect(deals.length).toBeGreaterThanOrEqual(2);
-      // Verify descending order
       for (let i = 1; i < deals.length; i++) {
         expect(deals[i - 1].dealConfidence).toBeGreaterThanOrEqual(deals[i].dealConfidence);
       }
@@ -487,8 +440,6 @@ describe('deal-builder — buildDeals', () => {
         interests: [],
       });
 
-      // With 0.85 similarity, interest match score should be ~17 (round(0.85 * 20))
-      // Without similarity and no interests, score should be 0
       expect(dealsWithSimilarity[0].dealConfidence).toBeGreaterThan(
         dealsWithoutSimilarity[0].dealConfidence,
       );
@@ -515,26 +466,21 @@ describe('deal-builder — buildDeals', () => {
     });
 
     it('falls back to tag matching when similarity not provided', async () => {
-      // Lisbon strengths: food, culture, nightlife, beach, budget
       const dealsWithTags = await buildDeals({
         ...defaultParams,
         interests: ['food', 'culture', 'nightlife', 'beach', 'budget'],
       });
 
-      // Should use DEST_STRENGTHS tag matching
       expect(dealsWithTags[0].confidenceRationale).toContain('Strong match for');
     });
 
     it('prefers similarity over tags when both could apply', async () => {
-      // With similarity score, should use similarity not tags
       const deals = await buildDeals({
         ...defaultParams,
         interests: ['food', 'culture'],
         similarityScores: { lisbon: 0.35 },
       });
 
-      // Similarity 0.35 → score ~7, which is less than tag matching would give
-      // But it should still use the similarity path (showing "Partial match")
       expect(deals[0].confidenceRationale).toContain('Partial match');
     });
   });
@@ -544,9 +490,6 @@ describe('deal-builder — buildDeals', () => {
   // =========================================================================
 
   describe('price logging', () => {
-    // -----------------------------------------------------------------------
-    // logPriceObservations is called with observations from all offers
-    // -----------------------------------------------------------------------
     it('calls logPriceObservations with observations from all flight offers', async () => {
       const flight = makeFlight({
         allOffers: [

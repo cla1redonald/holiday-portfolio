@@ -2,6 +2,7 @@ import { Deal, PriceBreakdown, FlightDetail, PriceContext, MarginConfig, Session
 import { FlightResult, StayResult } from './duffel-client';
 import { getDestinationImage, getCountry, lookupCity } from './iata-codes';
 import { getMarketPrice, getPricePercentile, logPriceObservations, SEED_PRICES, PriceObservation } from './price-intelligence';
+import { calculateDealPricing, isBelowMinimumFlightValue } from './pricing';
 
 interface BundleParams {
   flights: FlightResult[];
@@ -251,7 +252,7 @@ function calculateDealConfidence(input: ConfidenceInput): ConfidenceResult {
 }
 
 // ---------------------------------------------------------------------------
-// Margin calculation
+// Margin calculation (legacy — kept for PriceBreakdown display)
 // ---------------------------------------------------------------------------
 
 function calculateMargin(subtotal: number, config: MarginConfig): number {
@@ -302,16 +303,28 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
     const flightConv = toGBP(flight.pricePerPerson, flight.currency);
     const hotelConv = stay ? toGBP(hotelPerPerson, stay.currency) : { gbp: hotelPerPerson, known: true };
     const currencyKnown = flightConv.known && hotelConv.known;
-    const subtotalPerPerson = flightConv.gbp + hotelConv.gbp;
 
-    // Apply margin
+    // --- Pricing engine: calculate costs, markup, and margin ---
+    const flightTotalGBP = flightConv.gbp * Math.max(travellers, 1);
+    const hotelTotalGBP = hotelConv.gbp * Math.max(travellers, 1);
+    const isPackage = stay != null;
+
+    const dealPricing = calculateDealPricing({
+      flightTotalGBP,
+      hotelTotalGBP,
+      travellers,
+      isPackage,
+    });
+
+    // Use the customer-facing price (with markup applied)
+    const subtotalPerPerson = flightConv.gbp + hotelConv.gbp;
     const margin = calculateMargin(subtotalPerPerson, MARGIN_CONFIG);
-    const totalPerPerson = subtotalPerPerson + margin;
+    const totalPerPerson = dealPricing.customerPricePerPerson;
 
     const routeKey = routeKeys[index];
     const market = marketDataResults[index];
 
-    // Percentile needs totalPerPerson which we just computed — still one async call per flight
+    // Percentile needs totalPerPerson which we just computed
     const percentile = await getPricePercentile(totalPerPerson, routeKey, flight.nights);
 
     const priceCtx: PriceContext = {
@@ -336,6 +349,14 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
       sessionProfile,
       similarityScores,
     });
+
+    // Penalise confidence for loss-making deals
+    const belowMinFlight = isBelowMinimumFlightValue(flightTotalGBP);
+    const confidenceAdjustment = dealPricing.isLossMaker ? -15 : belowMinFlight ? -5 : 0;
+    const adjustedConfidence = Math.max(Math.min(confidence + confidenceAdjustment, 98), 10);
+    const adjustedRationale = dealPricing.isLossMaker
+      ? rationale + ' · Low margin'
+      : rationale;
 
     const destName = flight.destination.charAt(0).toUpperCase() + flight.destination.slice(1);
     const strengths = DEST_STRENGTHS[flight.destination] ?? [];
@@ -400,8 +421,8 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
       nights: flight.nights,
       pricePerPerson: Math.round(totalPerPerson),
       originalPrice,
-      dealConfidence: confidence,
-      confidenceRationale: rationale,
+      dealConfidence: adjustedConfidence,
+      confidenceRationale: adjustedRationale,
       tags,
       highlights,
       pricing,
@@ -410,6 +431,8 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
       priceContext: priceCtx,
       source: 'duffel',
       alternativeFlights,
+      netMargin: Math.round(dealPricing.netMargin * 100) / 100,
+      isLossMaker: dealPricing.isLossMaker,
     });
 
     // Collect price observations for logging
@@ -441,8 +464,13 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
     ? deals.filter((d, i) => !currencyKnownByIndex.get(i) || d.pricePerPerson <= budgetPerPerson)
     : deals;
 
-  // Sort by deal confidence descending
-  filtered.sort((a, b) => b.dealConfidence - a.dealConfidence);
+  // Sort: viable deals first, then by deal confidence descending
+  filtered.sort((a, b) => {
+    const aLoss = a.isLossMaker ? 1 : 0;
+    const bLoss = b.isLossMaker ? 1 : 0;
+    if (aLoss !== bLoss) return aLoss - bLoss;
+    return b.dealConfidence - a.dealConfidence;
+  });
 
   return filtered;
 }
