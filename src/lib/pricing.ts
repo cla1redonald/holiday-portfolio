@@ -7,6 +7,22 @@
  *   Stays: £0 cost to seller (commission-share from hotel)
  *   Ancillaries: $2 (~£1.60) per paid ancillary
  *
+ * How this maps to Duffel's payment flow:
+ *   Duffel has NO markup_amount field on the Create Order endpoint. Instead,
+ *   markup is applied via the Payment Intent amount — you charge the customer
+ *   more than the flight costs, and Duffel treats the difference as your markup.
+ *
+ *   Payment Intent amount = ((offer total + markup) × FX rate) / (1 - payment_fee%)
+ *
+ *   When building the booking flow, `calculateDealPricing()` output feeds directly
+ *   into the Payment Intent creation. The `totalCustomerPays` value from this
+ *   function becomes the basis for the Payment Intent `amount` field.
+ *
+ *   For ancillaries, Duffel's @duffel/components Ancillaries Component has a
+ *   built-in `markup` prop ({ amount, rate } per category). We use
+ *   `filterViableAncillaries()` to decide which categories to show, then the
+ *   Duffel component can handle price display using our markup config.
+ *
  * See docs/research/research-7-duffel-breakeven.md for full analysis.
  */
 
