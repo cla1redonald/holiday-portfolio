@@ -175,7 +175,9 @@ async function getSeedPriceFromSupabase(iataOrSlug: string): Promise<number | nu
 }
 
 async function getSeedPrice(route: string, nights: number): Promise<number | null> {
-  const dest = route.split("-").pop()?.toLowerCase() ?? "";
+  // Route format is "ORIGIN-destination-slug" — everything after the first hyphen is the destination
+  const firstHyphen = route.indexOf("-");
+  const dest = firstHyphen >= 0 ? route.slice(firstHyphen + 1).toLowerCase() : route.toLowerCase();
 
   // Try Supabase (447 destinations with seed_price_gbp)
   const dbPrice = await getSeedPriceFromSupabase(dest);

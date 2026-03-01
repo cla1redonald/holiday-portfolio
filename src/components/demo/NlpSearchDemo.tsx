@@ -72,7 +72,7 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
       const intent = {
         destinations: result.deals.map((d) => d.destination.toLowerCase()),
         interests: uniqueTags,
-        budgetPerPerson: result.deals.length > 0 ? result.deals[0].pricePerPerson : null,
+        budgetPerPerson: result.budgetPerPerson ?? (result.deals.length > 0 ? result.deals[0].pricePerPerson : null),
         travellers: 1,
       };
       const updated = updateSessionProfile(intent, result.preferences);

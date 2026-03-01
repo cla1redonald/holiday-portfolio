@@ -105,7 +105,8 @@ export async function resolveDestination(query: string): Promise<ResolvedDestina
     console.error('[duffel-client] resolveDestination Duffel fallback failed:', err);
   }
 
-  resolveCache.set(key, { data: null, expiresAt: Date.now() + 3_600_000 });
+  // Short TTL for null results so transient failures don't poison the cache
+  resolveCache.set(key, { data: null, expiresAt: Date.now() + 300_000 });
   return null;
 }
 

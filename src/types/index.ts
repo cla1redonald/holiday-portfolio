@@ -32,6 +32,7 @@ export interface SearchResult {
   query: string;
   source?: 'duffel' | 'mock';
   sessionId?: string;
+  budgetPerPerson?: number | null;
 }
 
 export interface UserPreference {

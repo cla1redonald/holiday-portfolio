@@ -277,6 +277,7 @@ export async function POST(request: NextRequest) {
       preferences: intent.preferences,
       query,
       source: 'duffel',
+      budgetPerPerson: intent.budgetPerPerson ?? null,
     };
 
     // Persist session server-side (best-effort, non-blocking for response)
