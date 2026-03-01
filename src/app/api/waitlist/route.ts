@@ -2,6 +2,12 @@ import { NextRequest, NextResponse } from 'next/server';
 
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 
+function redactEmail(email: string): string {
+  const [local, domain] = email.split('@');
+  const visible = local.slice(0, 2);
+  return `${visible}***@${domain}`;
+}
+
 export async function POST(req: NextRequest) {
   let body: unknown;
   try {
@@ -23,7 +29,7 @@ export async function POST(req: NextRequest) {
 
   // Log the signup (Vercel KV integration comes later)
   console.log('[waitlist] New signup:', {
-    email,
+    email: redactEmail(email),
     variant: variant ?? 'a',
     query: query ?? '',
     timestamp: timestamp ?? new Date().toISOString(),

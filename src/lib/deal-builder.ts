@@ -7,9 +7,10 @@ interface BundleParams {
   stays: StayResult[];
   interests: string[];
   travellers: number;
+  budgetPerPerson: number | null;
 }
 
-// Average city break prices per person (flight + hotel) for reference pricing
+// Reference prices (Q1 2026). Review quarterly — used for deal confidence scoring.
 const AVG_PRICES: Record<string, number> = {
   lisbon: 320, barcelona: 350, amsterdam: 380, rome: 340,
   porto: 280, prague: 260, dubrovnik: 400, marrakech: 300,
@@ -17,6 +18,13 @@ const AVG_PRICES: Record<string, number> = {
   copenhagen: 420, athens: 310, seville: 290, florence: 360,
   edinburgh: 280, nice: 380, split: 350, malaga: 270,
 };
+
+export const AVG_PRICES_LAST_UPDATED = '2026-03';
+
+function toGBP(amount: number, currency: string): number {
+  const rates: Record<string, number> = { GBP: 1.0, EUR: 0.86, USD: 0.79 };
+  return amount * (rates[currency] ?? 1.0);
+}
 
 // Which interests each destination is known for
 const DEST_STRENGTHS: Record<string, string[]> = {
@@ -87,7 +95,7 @@ function calculateDealConfidence(
   };
 }
 
-export function buildDeals({ flights, stays, interests, travellers }: BundleParams): Deal[] {
+export function buildDeals({ flights, stays, interests, travellers, budgetPerPerson }: BundleParams): Deal[] {
   const deals: Deal[] = [];
 
   for (const [index, flight] of flights.entries()) {
@@ -110,7 +118,9 @@ export function buildDeals({ flights, stays, interests, travellers }: BundlePara
     const hotelName = stay ? stay.hotelName : 'Hotel TBC';
 
     const hotelPerPerson = hotelTotal / Math.max(travellers, 1);
-    const totalPerPerson = flight.pricePerPerson + hotelPerPerson;
+    const flightGBP = toGBP(flight.pricePerPerson, flight.currency);
+    const hotelGBP = stay ? toGBP(hotelPerPerson, stay.currency) : hotelPerPerson;
+    const totalPerPerson = flightGBP + hotelGBP;
     const avgPrice = AVG_PRICES[flight.destination] ?? 350;
     const originalPrice = totalPerPerson < avgPrice ? avgPrice : Math.round(totalPerPerson);
 
@@ -137,7 +147,7 @@ export function buildDeals({ flights, stays, interests, travellers }: BundlePara
     };
 
     deals.push({
-      id: `duffel-${flight.destination}-${index}`,
+      id: `duffel-${flight.destination}-${index}-${Math.random().toString(36).slice(2, 7)}`,
       destination: destName,
       country: getCountry(flight.destination),
       hotel: hotelName,
@@ -153,8 +163,13 @@ export function buildDeals({ flights, stays, interests, travellers }: BundlePara
     });
   }
 
-  // Sort by deal confidence descending
-  deals.sort((a, b) => b.dealConfidence - a.dealConfidence);
+  // Filter out deals exceeding budget
+  const filtered = budgetPerPerson != null
+    ? deals.filter((d) => d.pricePerPerson <= budgetPerPerson)
+    : deals;
 
-  return deals;
+  // Sort by deal confidence descending
+  filtered.sort((a, b) => b.dealConfidence - a.dealConfidence);
+
+  return filtered;
 }
