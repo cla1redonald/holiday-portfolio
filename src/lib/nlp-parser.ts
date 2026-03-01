@@ -40,6 +40,16 @@ Rules:
 - Match the user's language and intent naturally
 - Do NOT include markdown formatting or code blocks — return raw JSON only`;
 
+const KNOWN_ORIGINS = new Set([
+  'LHR', 'LGW', 'MAN', 'STN', 'EDI', 'BHX', 'BRS', 'GLA', 'LTN',
+]);
+
+function validateOriginAirport(raw: unknown): string | null {
+  if (typeof raw !== 'string') return null;
+  const code = raw.trim().toUpperCase();
+  return KNOWN_ORIGINS.has(code) ? code : null;
+}
+
 function sanitizeQuery(raw: string): string {
   // Remove null bytes and control characters (keep newlines and tabs)
   let sanitized = raw.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '');
@@ -87,7 +97,7 @@ export async function parseSearchQuery(query: string): Promise<ParsedIntent> {
 
     return {
       destinations,
-      originAirport: parsed.originAirport ?? null,
+      originAirport: validateOriginAirport(parsed.originAirport),
       budgetPerPerson: parsed.budgetPerPerson ?? null,
       departureWindow: parsed.departureWindow ?? null,
       nights,

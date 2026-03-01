@@ -22,6 +22,21 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   ]);
 }
 
+function withAbortableTimeout<T>(
+  fn: (signal: AbortSignal) => Promise<T>,
+  ms: number
+): Promise<T | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ms);
+  return fn(controller.signal)
+    .then((result) => { clearTimeout(timeout); return result; })
+    .catch((err) => {
+      clearTimeout(timeout);
+      if (err instanceof DOMException && err.name === 'AbortError') return null;
+      throw err;
+    });
+}
+
 export interface FlightResult {
   destination: string;
   airline: string;
@@ -158,7 +173,7 @@ export async function searchStays(params: {
     type: 'adult' as const,
   }));
 
-  const searches = params.destinations.slice(0, 3).map((dest) => withTimeout((async () => {
+  const searches = params.destinations.slice(0, 3).map((dest) => withAbortableTimeout((signal) => (async () => {
     const cityInfo = lookupCity(dest);
     if (!cityInfo) return [];
 
@@ -186,6 +201,7 @@ export async function searchStays(params: {
             guests: guestsList,
           },
         }),
+        signal,
       });
 
       if (!res.ok) {
@@ -233,6 +249,7 @@ export async function searchStays(params: {
           };
         });
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return [];
       console.error(`Stays search failed for ${dest}:`, err);
       return [];
     }

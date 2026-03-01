@@ -57,6 +57,8 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
         console.error('API search failed, falling back to mock:', err);
         return searchDeals(q);
       });
+      // Only update state if this is still the active request
+      if (abortControllerRef.current !== controller) return;
       setDeals(result.deals);
       setPreferences(result.preferences);
       setSource(result.source ?? 'mock');
@@ -64,7 +66,10 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       throw err;
     } finally {
-      setLoading(false);
+      // Only clear loading if this is still the active request
+      if (abortControllerRef.current === controller) {
+        setLoading(false);
+      }
     }
   };
 
