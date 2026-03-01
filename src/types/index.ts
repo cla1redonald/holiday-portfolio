@@ -35,6 +35,7 @@ export interface VariantConfig {
 
 export interface ParsedIntent {
   destinations: string[];
+  originAirport: string | null;
   budgetPerPerson: number | null;
   departureWindow: { earliest: string; latest: string } | null;
   nights: number;

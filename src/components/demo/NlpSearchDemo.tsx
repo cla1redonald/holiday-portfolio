@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Deal, SearchResult, UserPreference } from '@/types';
 import { searchDeals } from '@/lib/search-engine';
 import SearchInput from './SearchInput';
@@ -12,11 +12,12 @@ interface NlpSearchDemoProps {
   onQueryChange?: (query: string) => void;
 }
 
-async function searchViaApi(query: string): Promise<SearchResult> {
+async function searchViaApi(query: string, signal?: AbortSignal): Promise<SearchResult> {
   const res = await fetch('/api/search', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ query }),
+    signal,
   });
 
   if (!res.ok) {
@@ -37,22 +38,41 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [source, setSource] = useState<'duffel' | 'mock' | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Abort in-flight request on unmount
+  useEffect(() => () => { abortControllerRef.current?.abort(); }, []);
 
   const handleSearch = async (q: string) => {
     if (!q.trim()) return;
+
+    // Abort any in-flight request
+    abortControllerRef.current?.abort();
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
+
     setLoading(true);
     setHasSearched(true);
     onQueryChange?.(q);
     try {
-      const result = await searchViaApi(q).catch((err) => {
+      const result = await searchViaApi(q, controller.signal).catch((err) => {
+        if (err instanceof DOMException && err.name === 'AbortError') throw err;
         console.error('API search failed, falling back to mock:', err);
         return searchDeals(q);
       });
+      // Only update state if this is still the active request
+      if (abortControllerRef.current !== controller) return;
       setDeals(result.deals);
       setPreferences(result.preferences);
       setSource(result.source ?? 'mock');
+    } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return;
+      console.error('Search error:', err);
     } finally {
-      setLoading(false);
+      // Only clear loading if this is still the active request
+      if (abortControllerRef.current === controller) {
+        setLoading(false);
+      }
     }
   };
 

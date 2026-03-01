@@ -18,24 +18,24 @@ Last updated: 2026-03-01
 
 | # | Issue | File | Status |
 |---|-------|------|--------|
-| 8 | Hardcoded origin LHR — non-London users get wrong flights | duffel-client.ts:47 | BACKLOG |
-| 9 | 4 parallel Duffel searches can exceed timeout | duffel-client.ts:56 | BACKLOG |
-| 10 | `departureWindow.latest` parsed but never used | route.ts:43-45 | BACKLOG |
-| 11 | `budgetPerPerson` parsed but never applied as filter | deal-builder.ts | BACKLOG |
-| 12 | Anthropic client re-instantiated every request | nlp-parser.ts:36 | BACKLOG |
-| 13 | Prompt injection risk — no sanitization before LLM | nlp-parser.ts:42 | BACKLOG |
-| 14 | No CORS restriction on /api/search | route.ts | BACKLOG |
-| 15 | Waitlist route logs email PII in plaintext | waitlist/route.ts | BACKLOG |
+| 8 | Hardcoded origin LHR — non-London users get wrong flights | nlp-parser.ts, route.ts, types/index.ts | DONE |
+| 9 | 4 parallel Duffel searches can exceed timeout | duffel-client.ts | DONE |
+| 10 | `departureWindow.latest` parsed but never used | route.ts | DONE |
+| 11 | `budgetPerPerson` parsed but never applied as filter | deal-builder.ts, route.ts | DONE |
+| 12 | Anthropic client re-instantiated every request | nlp-parser.ts | DONE |
+| 13 | Prompt injection risk — no sanitization before LLM | nlp-parser.ts | DONE |
+| 14 | No CORS restriction on /api/search | route.ts | DONE |
+| 15 | Waitlist route logs email PII in plaintext | waitlist/route.ts | DONE |
 
 ## Medium (P2) — Nice to Have
 
 | # | Issue | File | Status |
 |---|-------|------|--------|
-| 16 | Deal IDs use Date.now() — collision risk | deal-builder.ts:139 | BACKLOG |
-| 17 | No currency normalization (GBP/EUR/USD mixed) | deal-builder.ts | BACKLOG |
-| 18 | Hardcoded AVG_PRICES will go stale | deal-builder.ts:12-18 | BACKLOG |
-| 19 | Stays uses raw fetch instead of SDK | duffel-client.ts:150 | BACKLOG |
-| 20 | No frontend abort controller for in-flight requests | NlpSearchDemo.tsx | BACKLOG |
-| 21 | No health check endpoint | — | BACKLOG |
-| 22 | Cold start penalty on first request | — | BACKLOG |
-| 23 | Duffel singleton caches potentially revoked tokens | duffel-client.ts:4-13 | BACKLOG |
+| 16 | Deal IDs use Date.now() — collision risk | deal-builder.ts | DONE |
+| 17 | No currency normalization (GBP/EUR/USD mixed) | deal-builder.ts | DONE |
+| 18 | Hardcoded AVG_PRICES will go stale | deal-builder.ts | DONE |
+| 19 | Stays uses raw fetch instead of SDK | duffel-client.ts | BACKLOG |
+| 20 | No frontend abort controller for in-flight requests | NlpSearchDemo.tsx | DONE |
+| 21 | No health check endpoint | api/health/route.ts | DONE |
+| 22 | Cold start penalty on first request | — | DONE |
+| 23 | Duffel singleton caches potentially revoked tokens | duffel-client.ts | DONE |

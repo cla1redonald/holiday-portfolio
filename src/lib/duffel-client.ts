@@ -1,15 +1,41 @@
 import { Duffel } from '@duffel/api';
 import { lookupCity } from './iata-codes';
 
+// Singleton pattern: reuses the client across warm serverless invocations
 let duffelClient: Duffel | null = null;
+let duffelToken: string | null = null;
 
 function getDuffel(): Duffel {
   const token = process.env.DUFFEL_API_TOKEN;
   if (!token) throw new Error('DUFFEL_API_TOKEN not configured');
-  if (!duffelClient) {
+  if (!duffelClient || token !== duffelToken) {
     duffelClient = new Duffel({ token });
+    duffelToken = token;
   }
   return duffelClient;
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout>;
+  return Promise.race([
+    promise.then((v) => { clearTimeout(timer); return v; }),
+    new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), ms); }),
+  ]);
+}
+
+function withAbortableTimeout<T>(
+  fn: (signal: AbortSignal) => Promise<T>,
+  ms: number
+): Promise<T | null> {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), ms);
+  return fn(controller.signal)
+    .then((result) => { clearTimeout(timeout); return result; })
+    .catch((err) => {
+      clearTimeout(timeout);
+      if (err instanceof DOMException && err.name === 'AbortError') return null;
+      throw err;
+    });
 }
 
 export interface FlightResult {
@@ -52,8 +78,8 @@ export async function searchFlights(params: {
     type: 'adult' as const,
   }));
 
-  // Search flights to each destination in parallel (max 3)
-  const searches = params.destinations.slice(0, 3).map(async (dest) => {
+  // Search flights to each destination in parallel (max 3), with per-search timeout
+  const searches = params.destinations.slice(0, 3).map((dest) => withTimeout((async () => {
     const cityInfo = lookupCity(dest);
     if (!cityInfo) return null;
 
@@ -120,11 +146,11 @@ export async function searchFlights(params: {
       }
       return null;
     }
-  });
+  })(), 8000));
 
-  const settled = await Promise.all(searches);
+  const settled = await Promise.allSettled(searches);
   for (const result of settled) {
-    if (result) results.push(result);
+    if (result.status === 'fulfilled' && result.value) results.push(result.value);
   }
 
   return results;
@@ -148,7 +174,7 @@ export async function searchStays(params: {
     type: 'adult' as const,
   }));
 
-  const searches = params.destinations.slice(0, 3).map(async (dest) => {
+  const searches = params.destinations.slice(0, 3).map((dest) => withAbortableTimeout((signal) => (async () => {
     const cityInfo = lookupCity(dest);
     if (!cityInfo) return [];
 
@@ -176,6 +202,7 @@ export async function searchStays(params: {
             guests: guestsList,
           },
         }),
+        signal,
       });
 
       if (!res.ok) {
@@ -223,14 +250,15 @@ export async function searchStays(params: {
           };
         });
     } catch (err) {
+      if (err instanceof DOMException && err.name === 'AbortError') return [];
       console.error(`Stays search failed for ${dest}:`, err);
       return [];
     }
-  });
+  })(), 8000));
 
-  const settled = await Promise.all(searches);
-  for (const stayArr of settled) {
-    results.push(...stayArr);
+  const settled = await Promise.allSettled(searches);
+  for (const result of settled) {
+    if (result.status === 'fulfilled' && result.value) results.push(...result.value);
   }
   return results;
 }
