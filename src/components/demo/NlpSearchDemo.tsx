@@ -1,8 +1,9 @@
 'use client';
 
 import { useState, useRef, useEffect } from 'react';
-import { Deal, SearchResult, UserPreference } from '@/types';
+import { Deal, SearchResult, SessionProfile, UserPreference } from '@/types';
 import { searchDeals } from '@/lib/search-engine';
+import { getSessionProfile, updateSessionProfile, dismissPreference } from '@/lib/session-preferences';
 import SearchInput from './SearchInput';
 import SuggestedQueries from './SuggestedQueries';
 import DealGrid from './DealGrid';
@@ -12,11 +13,11 @@ interface NlpSearchDemoProps {
   onQueryChange?: (query: string) => void;
 }
 
-async function searchViaApi(query: string, signal?: AbortSignal): Promise<SearchResult> {
+async function searchViaApi(query: string, sessionProfile: SessionProfile | null, signal?: AbortSignal): Promise<SearchResult> {
   const res = await fetch('/api/search', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query }),
+    body: JSON.stringify({ query, sessionProfile }),
     signal,
   });
 
@@ -38,7 +39,13 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [source, setSource] = useState<'duffel' | 'mock' | null>(null);
+  const [sessionProfile, setSessionProfile] = useState<SessionProfile | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Initialize session profile on mount
+  useEffect(() => {
+    setSessionProfile(getSessionProfile());
+  }, []);
 
   // Abort in-flight request on unmount
   useEffect(() => () => { abortControllerRef.current?.abort(); }, []);
@@ -55,7 +62,7 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
     setHasSearched(true);
     onQueryChange?.(q);
     try {
-      const result = await searchViaApi(q, controller.signal).catch((err) => {
+      const result = await searchViaApi(q, sessionProfile, controller.signal).catch((err) => {
         if (err instanceof DOMException && err.name === 'AbortError') throw err;
         console.error('API search failed, falling back to mock:', err);
         return searchDeals(q);
@@ -65,6 +72,19 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
       setDeals(result.deals);
       setPreferences(result.preferences);
       setSource(result.source ?? 'mock');
+
+      // Update session profile with search data
+      // Use canonical tags from deal tags (not display labels) for interest matching
+      const allTags = result.deals.flatMap((d) => d.tags);
+      const uniqueTags = [...new Set(allTags)];
+      const intent = {
+        destinations: [...new Set(result.deals.map((d) => d.destination.toLowerCase()))],
+        interests: uniqueTags,
+        budgetPerPerson: result.deals.length > 0 ? result.deals[0].pricePerPerson : null,
+        travellers: 1,
+      };
+      const updated = updateSessionProfile(intent, result.preferences);
+      setSessionProfile(updated);
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
       console.error('Search error:', err);
@@ -74,6 +94,12 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
         setLoading(false);
       }
     }
+  };
+
+  const handleDismissPreference = (tag: string) => {
+    const updated = dismissPreference(tag);
+    setSessionProfile(updated);
+    setPreferences((prev) => prev.filter((p) => p.label !== tag));
   };
 
   const handleSuggestedQuery = (q: string) => {
@@ -187,7 +213,11 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
               )}
             </div>
             <DealGrid deals={deals} />
-            <PreferencePanel preferences={preferences} />
+            <PreferencePanel
+              preferences={preferences}
+              onDismiss={handleDismissPreference}
+              searchCount={sessionProfile?.searchCount ?? 0}
+            />
 
             {/* Search again */}
             <div className="mt-10 text-center">
