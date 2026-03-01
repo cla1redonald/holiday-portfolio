@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Deal, UserPreference } from '@/types';
+import { Deal, SearchResult, UserPreference } from '@/types';
 import { searchDeals } from '@/lib/search-engine';
 import SearchInput from './SearchInput';
 import SuggestedQueries from './SuggestedQueries';
@@ -12,12 +12,32 @@ interface NlpSearchDemoProps {
   onQueryChange?: (query: string) => void;
 }
 
+async function searchViaApi(query: string): Promise<SearchResult> {
+  const res = await fetch('/api/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ query }),
+  });
+
+  if (!res.ok) {
+    const data = await res.json().catch(() => ({}));
+    if (data.fallback) {
+      // API keys not configured or service error — fall back to mock
+      return searchDeals(query);
+    }
+    throw new Error(data.error ?? 'Search failed');
+  }
+
+  return res.json();
+}
+
 export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
   const [query, setQuery] = useState('');
   const [deals, setDeals] = useState<Deal[]>([]);
   const [preferences, setPreferences] = useState<UserPreference[]>([]);
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
+  const [source, setSource] = useState<'duffel' | 'mock' | null>(null);
 
   const handleSearch = async (q: string) => {
     if (!q.trim()) return;
@@ -25,9 +45,14 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
     setHasSearched(true);
     onQueryChange?.(q);
     try {
-      const result = await searchDeals(q);
+      // Try real API first, fall back to mock engine
+      const result = await searchViaApi(q).catch(() => {
+        setSource('mock');
+        return searchDeals(q);
+      });
       setDeals(result.deals);
       setPreferences(result.preferences);
+      setSource(result.source ?? 'mock');
     } finally {
       setLoading(false);
     }
@@ -87,6 +112,11 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
                 Showing <span className="font-semibold text-foreground">{deals.length} deals</span> matched to your search
               </p>
             </div>
+            {source === 'mock' && (
+              <p className="text-xs text-secondary/70 text-center mb-4">
+                Showing sample results — live pricing unavailable right now
+              </p>
+            )}
             <DealGrid deals={deals} />
             <PreferencePanel preferences={preferences} />
           </>

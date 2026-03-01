@@ -18,6 +18,7 @@ export interface SearchResult {
   deals: Deal[];
   preferences: UserPreference[];
   query: string;
+  source?: 'duffel' | 'mock';
 }
 
 export interface UserPreference {
@@ -30,4 +31,14 @@ export interface VariantConfig {
   id: 'a' | 'b' | 'c';
   headline: string;
   subheadline: string;
+}
+
+export interface ParsedIntent {
+  destinations: string[];
+  budgetPerPerson: number | null;
+  departureWindow: { earliest: string; latest: string } | null;
+  nights: number;
+  interests: string[];
+  travellers: number;
+  preferences: UserPreference[];
 }
