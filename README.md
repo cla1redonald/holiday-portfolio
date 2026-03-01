@@ -30,18 +30,18 @@ The search pipeline is a single POST to `/api/search`. Claude Haiku extracts str
 
 ### Semantic Destination Search
 
-**447 destinations pre-embedded with OpenAI `text-embedding-3-small`, stored in Supabase with an HNSW vector index.** Each destination embedding encodes geographic, cultural, and experiential context — not just the city name. A query for "somewhere warm and cheap" matches semantically against those embeddings via cosine similarity. Keyword matching is the fallback when OpenAI is unavailable; semantic search is the default.
+**447 destinations pre-embedded with OpenAI ****`text-embedding-3-small`****, stored in Supabase with an HNSW vector index.** Each destination embedding encodes geographic, cultural, and experiential context — not just the city name. A query for "somewhere warm and cheap" matches semantically against those embeddings via cosine similarity. Keyword matching is the fallback when OpenAI is unavailable; semantic search is the default.
 
 ### NLP Query Understanding
 
-**Claude Haiku 4.5 parses natural language into a structured `ParsedIntent` object** — destinations, origin airport, budget per person, departure window, nights, traveller count, and inferred interests. The prompt is designed with explicit injection defence (user input is quoted and role-separated). Parsing latency is low enough to run synchronously in the search path.
+**Claude Haiku 4.5 parses natural language into a structured ****`ParsedIntent`**** object** — destinations, origin airport, budget per person, departure window, nights, traveller count, and inferred interests. The prompt is designed with explicit injection defence (user input is quoted and role-separated). Parsing latency is low enough to run synchronously in the search path.
 
 ### 5-Factor Deal Confidence Scoring
 
 **Each deal receives a 0–100 confidence score** built from five weighted factors:
 
 | Factor | What it measures |
-|--------|-----------------|
+| --- | --- |
 | **Price percentile** | Where this price sits relative to tracked market data for the route |
 | **Semantic similarity** | How closely the destination matched the original query embedding |
 | **Booking lead time** | Days until departure — short lead time penalised |
@@ -62,17 +62,25 @@ Scores are accompanied by a human-readable `confidenceRationale` string explaini
 
 Each deal carries a `netMargin` and `isLossMaker` flag internally. These are stripped before the client response.
 
+### Price Sparklines
+
+**Mini SVG trend charts on every deal card** showing 14-day price history from Redis observations. Green line when prices are trending down, red when rising. Gives users immediate visual context for whether a deal is getting cheaper or more expensive.
+
 ### Live FX Rates
 
 **Exchange rates from open.er-api.com, cached for 24 hours** with hardcoded fallback rates so FX conversion never blocks a search. All internal pricing is normalised to GBP. The deal builder converts Duffel's multi-currency responses on the way in.
 
 ### Session Personalisation
 
-**Hybrid session model: server-side profile in Supabase, client-side signals in `sessionStorage`.** Each search incrementally updates a `SessionProfile` with inferred interests, destination history, budget signals, and travel style indicators. On subsequent searches, the session profile is loaded and fed into confidence scoring — deals that align with established preferences score higher. The `roami_sid` cookie links requests to server-side profiles without exposing session data to client JavaScript.
+**Hybrid session model: server-side profile in Supabase, client-side signals in ****`sessionStorage`****.** Each search incrementally updates a `SessionProfile` with inferred interests, destination history, budget signals, and travel style indicators. On subsequent searches, the session profile is loaded and fed into confidence scoring — deals that align with established preferences score higher. The `roami_sid` cookie links requests to server-side profiles without exposing session data to client JavaScript.
 
 ### Market Price Intelligence
 
-**Route-level price observations are logged to Upstash Redis** after each search. Rolling statistics (median, percentile buckets, trend direction) build up over time and feed the price percentile factor in confidence scoring. Without Redis configured, price percentile scoring is omitted — all other factors still apply.
+**Route-level price observations are logged to Upstash Redis** after each search. Rolling statistics (median, percentile buckets, trend direction) build up over time and feed the price percentile factor in confidence scoring. Embedding vectors are also cached in Redis (7-day TTL) to avoid redundant OpenAI calls after cold starts. Without Redis configured, price intelligence and embedding caching are omitted — all other features still work.
+
+### Booking Flow
+
+**Contact-to-book flow** with deal summary and pre-filled email/WhatsApp CTAs. Users click "Book This Deal" from any deal detail page, see a price breakdown, and reach out directly. Booking intents are tracked in the session profile for analytics. Full payment integration (Stripe + Duffel) is planned for post-validation.
 
 ---
 
@@ -99,7 +107,7 @@ Full strategy corpus: [`docs/strategy/`](docs/strategy/)
 ## Built With
 
 | Technology | Role |
-|-----------|------|
+| --- | --- |
 | Next.js 16 (App Router) + React 19 | Frontend and API routes |
 | TypeScript | Type safety throughout |
 | Supabase (pgvector, RLS) | Vector search and session storage |
@@ -107,7 +115,7 @@ Full strategy corpus: [`docs/strategy/`](docs/strategy/)
 | Amadeus (`amadeus`) | Hotel search fallback when Duffel Stays is empty |
 | Claude Haiku 4.5 (`@anthropic-ai/sdk`) | NLP query parsing |
 | OpenAI `text-embedding-3-small` | Destination embeddings |
-| Upstash Redis (`@upstash/redis`) | Market price intelligence cache |
+| Upstash Redis (`@upstash/redis`) | Market price intelligence + embedding cache |
 | Tailwind CSS v4 | Styling (CSS-first config) |
 | Vitest | Unit testing |
 | Vercel | Hosting and serverless functions |
@@ -151,30 +159,35 @@ roami/
 │   │   │   ├── track/             # POST /api/track — session event tracking
 │   │   │   ├── waitlist/          # POST /api/waitlist — email capture
 │   │   │   └── health/            # GET /api/health — liveness probe
-│   │   ├── deal/[id]/             # Deal detail page (flight timeline, hotel, price breakdown)
+│   │   ├── deal/
+│   │   │   └── [id]/
+│   │   │       ├── page.tsx       # Deal detail page (flight timeline, hotel, price breakdown)
+│   │   │       └── book/
+│   │   │           └── page.tsx   # Booking page (contact CTAs)
 │   │   └── page.tsx               # Landing page and search UI
 │   ├── lib/
 │   │   ├── nlp-parser.ts          # Claude Haiku intent extraction
-│   │   ├── embeddings.ts          # OpenAI embedding generation
+│   │   ├── embeddings.ts          # OpenAI embedding generation + Redis cache
 │   │   ├── destination-search.ts  # Supabase pgvector cosine similarity
 │   │   ├── duffel-client.ts       # Duffel flight and stays API client
 │   │   ├── amadeus-client.ts      # Amadeus hotel search (fallback when Duffel Stays empty)
 │   │   ├── deal-builder.ts        # Deal assembly and 5-factor confidence scoring
-│   │   ├── deal-store.ts          # In-memory deal cache for detail page lookups
+│   │   ├── deal-store.ts          # Client-side deal cache (sessionStorage)
 │   │   ├── pricing.ts             # Duffel fee model, markup (tier-aware), and ATOL
 │   │   ├── fx-rates.ts            # Live exchange rates with 24h cache
-│   │   ├── price-intelligence.ts  # Upstash Redis price tracking
+│   │   ├── price-intelligence.ts  # Upstash Redis price tracking + sparkline data
 │   │   ├── session-store.ts       # Server-side session (Supabase)
-│   │   ├── session-preferences.ts # Client-side preference + tracking (breakdown clicks, Pro interest)
-│   │   └── __tests__/             # 114 unit tests across 8 files
+│   │   ├── session-preferences.ts # Client-side preference + tracking
+│   │   └── __tests__/             # Unit tests across 8 files
 │   ├── components/
 │   │   ├── deal/                  # Deal detail (DealDetail, FlightTimeline, PriceSummary, AncillarySelector, ProTeaser)
-│   │   ├── booking/               # Booking flow (BookingForm, PassengerForm, PaymentSection)
-│   │   └── demo/                  # Search UI (NlpSearchDemo, DealCard, PreferencesPanel)
+│   │   ├── booking/               # Booking flow (BookingForm, ContactSection)
+│   │   └── demo/                  # Search UI (NlpSearchDemo, DealCard, PriceSparkline, PreferencesPanel)
 │   └── types/
 │       └── index.ts               # Shared TypeScript types
 ├── docs/
 │   ├── HANDOFF.md                 # Current status and next steps
+│   ├── plans/                     # Architecture review and design docs
 │   ├── strategy/                  # 14 strategy framework documents
 │   └── research/                  # Revenue model and Duffel economics research
 └── supabase/
@@ -193,4 +206,4 @@ npx tsc --noEmit    # typecheck
 npm run build       # production build
 ```
 
-**114 tests across 8 files** covering: deal builder, pricing engine, FX rates, price intelligence, Duffel client, Amadeus client, embedding generation, and destination search. Tests use `vi.mock` to isolate external API calls — no real API calls in the test suite.
+Tests cover: deal builder, pricing engine, FX rates, price intelligence, Duffel client, Amadeus client, embedding generation, and destination search. Tests use `vi.mock` to isolate external API calls — no real API calls in the test suite.

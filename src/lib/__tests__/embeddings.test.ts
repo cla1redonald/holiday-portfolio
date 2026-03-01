@@ -9,6 +9,12 @@ vi.mock('openai', () => {
   };
 });
 
+const mockRedisGet = vi.fn();
+const mockRedisSet = vi.fn();
+vi.mock('../redis', () => ({
+  getRedis: () => ({ get: mockRedisGet, set: mockRedisSet }),
+}));
+
 import OpenAI from 'openai';
 import { embedText, buildQueryText } from '../embeddings';
 import type { ParsedIntent } from '@/types';
@@ -19,6 +25,8 @@ describe('embeddings', () => {
   beforeEach(() => {
     vi.clearAllMocks();
     process.env.OPENAI_API_KEY = 'test-key';
+    mockRedisGet.mockResolvedValue(null);
+    mockRedisSet.mockResolvedValue('OK');
   });
 
   describe('embedText', () => {

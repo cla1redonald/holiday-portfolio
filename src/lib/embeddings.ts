@@ -1,5 +1,7 @@
 import OpenAI from 'openai';
+import { createHash } from 'crypto';
 import type { ParsedIntent } from '@/types';
+import { getRedis } from './redis';
 
 let openaiClient: OpenAI | null = null;
 
@@ -11,11 +13,38 @@ function getOpenAI(): OpenAI | null {
   return openaiClient;
 }
 
+// In-memory cache for the current warm invocation
 const requestCache = new Map<string, number[]>();
 
+const EMBEDDING_CACHE_TTL = 7 * 24 * 60 * 60; // 7 days in seconds
+
+function embeddingCacheKey(text: string): string {
+  const hash = createHash('sha256').update(text).digest('hex').slice(0, 16);
+  return `emb:v1:${hash}`;
+}
+
 export async function embedText(text: string): Promise<number[] | null> {
-  const cached = requestCache.get(text);
-  if (cached) return cached;
+  // Check in-memory cache first (fastest)
+  const memCached = requestCache.get(text);
+  if (memCached) return memCached;
+
+  // Check Redis cache (survives cold starts)
+  const redis = getRedis();
+  if (redis) {
+    try {
+      const redisCached = await redis.get<number[]>(embeddingCacheKey(text));
+      if (
+        Array.isArray(redisCached) &&
+        redisCached.length === 1536 &&
+        redisCached.every(v => typeof v === 'number')
+      ) {
+        requestCache.set(text, redisCached);
+        return redisCached;
+      }
+    } catch {
+      // Redis miss — fall through to OpenAI
+    }
+  }
 
   const openai = getOpenAI();
   if (!openai) return null;
@@ -31,7 +60,15 @@ export async function embedText(text: string): Promise<number[] | null> {
 
     clearTimeout(timer);
     const embedding = response.data[0].embedding;
+
+    // Cache in memory
     requestCache.set(text, embedding);
+
+    // Cache in Redis (best-effort, non-blocking)
+    if (redis) {
+      redis.set(embeddingCacheKey(text), embedding, { ex: EMBEDDING_CACHE_TTL }).catch(() => {});
+    }
+
     return embedding;
   } catch (err) {
     console.error('[embeddings] embedText failed:', err);
