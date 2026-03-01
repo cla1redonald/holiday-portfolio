@@ -58,8 +58,8 @@ DUFFEL_API_TOKEN=           # Required
 OPENAI_API_KEY=             # Optional — search degrades to keyword matching without it
 SUPABASE_URL=               # Required
 SUPABASE_SERVICE_ROLE_KEY=  # Required
-UPSTASH_REDIS_REST_URL=     # Optional — market price data unavailable without it
-UPSTASH_REDIS_REST_TOKEN=   # Optional
+UPSTASH_REDIS_REST_URL=     # Required — rate limiting, price intelligence, deal scoring
+UPSTASH_REDIS_REST_TOKEN=   # Required
 AMADEUS_API_KEY=            # Optional — hotel fallback unavailable without it
 AMADEUS_API_SECRET=         # Optional — hotel fallback unavailable without it
 ```
@@ -107,8 +107,10 @@ Required env vars on Vercel (search will fail without these):
 - `SUPABASE_SERVICE_ROLE_KEY` — destination database auth
 - `NEXT_PUBLIC_SUPABASE_URL` — client-side Supabase URL
 
+Required for full functionality:
+- `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` — rate limiting + price intelligence (no rate limiting without these!)
+
 Optional (graceful degradation without):
-- `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` — price intelligence cache + rate limiting
 - `AMADEUS_API_KEY` / `AMADEUS_API_SECRET` — hotel search fallback
 
 To add a missing var: `printf '%s\ny\n' "VALUE" | vercel env add VAR_NAME production`
