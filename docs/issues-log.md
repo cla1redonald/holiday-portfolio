@@ -6,13 +6,13 @@ Last updated: 2026-03-01
 
 | # | Issue | File | Status |
 |---|-------|------|--------|
-| 1 | Hotel price per-room added to per-person flight price | deal-builder.ts:111 | IN PROGRESS |
-| 2 | Fabricated "original price" with random 15-25% markup | deal-builder.ts:113-114 | IN PROGRESS |
-| 3 | Silent fallback to mock data — no indication to user | route.ts:78-87, NlpSearchDemo.tsx:48 | IN PROGRESS |
-| 4 | `return_offers: true` causes timeout, triggering mock fallback | duffel-client.ts:81 | IN PROGRESS |
-| 5 | No rate limiting — unbounded API cost exposure | route.ts | IN PROGRESS |
-| 6 | No input validation — query length, travellers clamping | route.ts, nlp-parser.ts | IN PROGRESS |
-| 7 | Server-side files not committed to git | All new lib files | IN PROGRESS |
+| 1 | Hotel price per-room added to per-person flight price | deal-builder.ts:111 | DONE |
+| 2 | Fabricated "original price" with random 15-25% markup | deal-builder.ts:113-114 | DONE |
+| 3 | Silent fallback to mock data — no indication to user | route.ts:78-87, NlpSearchDemo.tsx:48 | DONE |
+| 4 | `return_offers: true` causes timeout, triggering mock fallback | duffel-client.ts:81 | DONE |
+| 5 | No rate limiting — unbounded API cost exposure | route.ts | DONE |
+| 6 | No input validation — query length, travellers clamping | route.ts, nlp-parser.ts | DONE |
+| 7 | Server-side files not committed to git | All new lib files | DONE |
 
 ## High (P1) — Should Fix
 
