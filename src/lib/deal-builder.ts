@@ -260,6 +260,14 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
   const priceObservations: PriceObservation[] = [];
   const originCode = origin ?? 'LHR';
 
+  // Prefetch all market data in parallel to avoid sequential Redis calls
+  const routeKeys = flights.map((flight) => {
+    const cityInfo = lookupCity(flight.destination);
+    return cityInfo ? `${originCode}-${cityInfo.iata}` : `${originCode}-${flight.destination.toUpperCase()}`;
+  });
+  const marketDataPromises = routeKeys.map((key, i) => getMarketPrice(key, flights[i].nights));
+  const marketDataResults = await Promise.all(marketDataPromises);
+
   for (const [index, flight] of flights.entries()) {
     // Find the best stay for this destination
     const destStays = stays
@@ -287,13 +295,11 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
     const margin = calculateMargin(subtotalPerPerson, MARGIN_CONFIG);
     const totalPerPerson = subtotalPerPerson + margin;
 
-    // Build route key for price intelligence
-    const cityInfo = lookupCity(flight.destination);
-    const routeKey = cityInfo ? `${originCode}-${cityInfo.iata}` : `${originCode}-${flight.destination.toUpperCase()}`;
+    const routeKey = routeKeys[index];
+    const market = marketDataResults[index];
 
-    // Fetch market price data
-    const market = await getMarketPrice(routeKey, flight.nights);
-    const percentile = await getPricePercentile(flightConv.gbp, routeKey, flight.nights);
+    // Percentile needs totalPerPerson which we just computed — still one async call per flight
+    const percentile = await getPricePercentile(totalPerPerson, routeKey, flight.nights);
 
     const priceCtx: PriceContext = {
       marketMedian: market.stats?.median ?? market.price,

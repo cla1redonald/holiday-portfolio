@@ -4,6 +4,22 @@ import { SessionProfile, UserPreference } from '@/types';
 
 const STORAGE_KEY = 'roami_session_profile';
 
+// Canonical tag vocabulary used in deal-builder scoring
+const CANONICAL_TAGS = [
+  'food', 'culture', 'nightlife', 'beach', 'budget', 'architecture',
+  'art', 'historic', 'romantic', 'shopping', 'luxury',
+];
+
+/**
+ * Extract canonical tags from a display label (e.g. "Great food scene" → ["food"]).
+ * Returns the label lowercased if no canonical tags match.
+ */
+export function normalizeToTags(label: string): string[] {
+  const lower = label.toLowerCase();
+  const matched = CANONICAL_TAGS.filter((tag) => lower.includes(tag));
+  return matched.length > 0 ? matched : [lower];
+}
+
 function generateId(): string {
   return crypto.randomUUID?.() ?? `${Date.now()}-${Math.random().toString(36).slice(2, 11)}`;
 }
@@ -79,11 +95,13 @@ export function updateSessionProfile(
     profile.budgetSignals.push(intent.budgetPerPerson);
   }
 
-  // Accumulate travel style from preferences (non-dismissed only)
+  // Accumulate travel style from preferences using canonical tags (non-dismissed only)
   for (const pref of preferences) {
-    if (profile.dismissedPreferences.includes(pref.label)) continue;
-    const key = pref.label.toLowerCase();
-    profile.travelStyle[key] = (profile.travelStyle[key] ?? 0) + 1;
+    const tags = normalizeToTags(pref.label);
+    if (tags.some((t) => profile.dismissedPreferences.includes(t))) continue;
+    for (const tag of tags) {
+      profile.travelStyle[tag] = (profile.travelStyle[tag] ?? 0) + 1;
+    }
   }
 
   return persist(profile);
@@ -92,8 +110,12 @@ export function updateSessionProfile(
 export function dismissPreference(tag: string): SessionProfile {
   const profile = getSessionProfile();
 
-  if (!profile.dismissedPreferences.includes(tag)) {
-    profile.dismissedPreferences.push(tag);
+  // Store canonical tags so they match deal-builder's scoring vocabulary
+  const tags = normalizeToTags(tag);
+  for (const t of tags) {
+    if (!profile.dismissedPreferences.includes(t)) {
+      profile.dismissedPreferences.push(t);
+    }
   }
 
   return persist(profile);

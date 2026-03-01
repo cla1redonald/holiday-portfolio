@@ -202,17 +202,30 @@ function round2(n: number): number {
 // Seed price lookup (private)
 // ---------------------------------------------------------------------------
 
+// Reverse IATA→city lookup for seed price matching
+const IATA_TO_CITY: Record<string, string> = {
+  lis: "lisbon", bcn: "barcelona", ams: "amsterdam", fco: "rome",
+  opo: "porto", prg: "prague", dbv: "dubrovnik", rak: "marrakech",
+  cdg: "paris", ber: "berlin", vie: "vienna", bud: "budapest",
+  cph: "copenhagen", ath: "athens", svq: "seville", flr: "florence",
+  edi: "edinburgh", nce: "nice", spu: "split", agp: "malaga",
+};
+
 function getSeedPrice(route: string, nights: number): number | null {
   // route is e.g. "LHR-LIS" — try to match the destination city
   const dest = route.split("-").pop()?.toLowerCase() ?? "";
 
-  // Direct city name match first
+  // Direct city name match first (works if route uses city names)
   if (SEED_PRICES[dest] !== undefined) {
     return SEED_PRICES[dest] * (nights / 3);
   }
 
-  // Try matching against all seed keys (destination codes don't always match)
-  // Caller can fall back to a global default if needed
+  // IATA code → city name lookup
+  const cityName = IATA_TO_CITY[dest];
+  if (cityName && SEED_PRICES[cityName] !== undefined) {
+    return SEED_PRICES[cityName] * (nights / 3);
+  }
+
   return null;
 }
 
