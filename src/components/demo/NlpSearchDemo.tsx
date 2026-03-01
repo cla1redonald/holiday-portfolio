@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { Deal, SearchResult, UserPreference } from '@/types';
 import { searchDeals } from '@/lib/search-engine';
 import SearchInput from './SearchInput';
@@ -39,6 +39,9 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
   const [hasSearched, setHasSearched] = useState(false);
   const [source, setSource] = useState<'duffel' | 'mock' | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
+
+  // Abort in-flight request on unmount
+  useEffect(() => () => { abortControllerRef.current?.abort(); }, []);
 
   const handleSearch = async (q: string) => {
     if (!q.trim()) return;

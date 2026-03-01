@@ -154,7 +154,7 @@ export function buildDeals({ flights, stays, interests, travellers, budgetPerPer
 
     currencyKnownByIndex.set(deals.length, currencyKnown);
     deals.push({
-      id: `duffel-${flight.destination}-${index}-${Math.random().toString(36).slice(2, 7)}`,
+      id: `duffel-${flight.destination}-${flight.departureDate}-${flight.airline.replace(/\s+/g, '')}-${index}`,
       destination: destName,
       country: getCountry(flight.destination),
       hotel: hotelName,

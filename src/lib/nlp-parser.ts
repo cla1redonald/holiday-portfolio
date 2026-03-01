@@ -98,7 +98,9 @@ export async function parseSearchQuery(query: string): Promise<ParsedIntent> {
     return {
       destinations,
       originAirport: validateOriginAirport(parsed.originAirport),
-      budgetPerPerson: parsed.budgetPerPerson ?? null,
+      budgetPerPerson: typeof parsed.budgetPerPerson === 'number' && Number.isFinite(parsed.budgetPerPerson) && parsed.budgetPerPerson > 0
+        ? parsed.budgetPerPerson
+        : null,
       departureWindow: parsed.departureWindow ?? null,
       nights,
       interests: parsed.interests ?? [],

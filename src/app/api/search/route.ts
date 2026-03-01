@@ -92,16 +92,17 @@ export async function POST(request: NextRequest) {
 
     // Step 2: Calculate dates
     const now = new Date();
+    const todayStr = now.toISOString().split('T')[0];
     let departureDate: string;
     let returnDate: string;
 
     if (intent.departureWindow) {
       const earliest = intent.departureWindow.earliest;
       const latest = intent.departureWindow.latest;
-      // Use earliest, but fall back to latest if earliest is in the past
-      if (new Date(earliest) >= now) {
+      // Compare date-only strings to avoid time-of-day issues
+      if (earliest >= todayStr) {
         departureDate = earliest;
-      } else if (latest && new Date(latest) >= now) {
+      } else if (latest && latest >= todayStr) {
         departureDate = latest;
       } else {
         departureDate = addDays(now, 21);
