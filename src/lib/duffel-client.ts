@@ -16,9 +16,10 @@ function getDuffel(): Duffel {
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  let timer: ReturnType<typeof setTimeout>;
   return Promise.race([
-    promise,
-    new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+    promise.then((v) => { clearTimeout(timer); return v; }),
+    new Promise<null>((resolve) => { timer = setTimeout(() => resolve(null), ms); }),
   ]);
 }
 

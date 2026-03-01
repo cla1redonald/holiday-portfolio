@@ -64,7 +64,7 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
       setSource(result.source ?? 'mock');
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
-      throw err;
+      console.error('Search error:', err);
     } finally {
       // Only clear loading if this is still the active request
       if (abortControllerRef.current === controller) {

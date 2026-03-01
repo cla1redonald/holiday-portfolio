@@ -21,9 +21,13 @@ const AVG_PRICES: Record<string, number> = {
 
 export const AVG_PRICES_LAST_UPDATED = '2026-03';
 
-function toGBP(amount: number, currency: string): number {
-  const rates: Record<string, number> = { GBP: 1.0, EUR: 0.86, USD: 0.79 };
-  return amount * (rates[currency] ?? 1.0);
+const CURRENCY_RATES: Record<string, number> = { GBP: 1.0, EUR: 0.86, USD: 0.79 };
+
+function toGBP(amount: number, currency: string): { gbp: number; known: boolean } {
+  const rate = CURRENCY_RATES[currency];
+  if (rate != null) return { gbp: amount * rate, known: true };
+  console.warn(`[deal-builder] Unknown currency "${currency}", treating as GBP`);
+  return { gbp: amount, known: false };
 }
 
 // Which interests each destination is known for
@@ -97,6 +101,7 @@ function calculateDealConfidence(
 
 export function buildDeals({ flights, stays, interests, travellers, budgetPerPerson }: BundleParams): Deal[] {
   const deals: Deal[] = [];
+  const currencyKnownByIndex = new Map<number, boolean>();
 
   for (const [index, flight] of flights.entries()) {
     // Find the best stay for this destination
@@ -118,9 +123,10 @@ export function buildDeals({ flights, stays, interests, travellers, budgetPerPer
     const hotelName = stay ? stay.hotelName : 'Hotel TBC';
 
     const hotelPerPerson = hotelTotal / Math.max(travellers, 1);
-    const flightGBP = toGBP(flight.pricePerPerson, flight.currency);
-    const hotelGBP = stay ? toGBP(hotelPerPerson, stay.currency) : hotelPerPerson;
-    const totalPerPerson = flightGBP + hotelGBP;
+    const flightConv = toGBP(flight.pricePerPerson, flight.currency);
+    const hotelConv = stay ? toGBP(hotelPerPerson, stay.currency) : { gbp: hotelPerPerson, known: true };
+    const currencyKnown = flightConv.known && hotelConv.known;
+    const totalPerPerson = flightConv.gbp + hotelConv.gbp;
     const avgPrice = AVG_PRICES[flight.destination] ?? 350;
     const originalPrice = totalPerPerson < avgPrice ? avgPrice : Math.round(totalPerPerson);
 
@@ -146,6 +152,7 @@ export function buildDeals({ flights, stays, interests, travellers, budgetPerPer
       return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
     };
 
+    currencyKnownByIndex.set(deals.length, currencyKnown);
     deals.push({
       id: `duffel-${flight.destination}-${index}-${Math.random().toString(36).slice(2, 7)}`,
       destination: destName,
@@ -163,9 +170,9 @@ export function buildDeals({ flights, stays, interests, travellers, budgetPerPer
     });
   }
 
-  // Filter out deals exceeding budget
+  // Filter out deals exceeding budget (skip filtering for deals with unknown currency conversion)
   const filtered = budgetPerPerson != null
-    ? deals.filter((d) => d.pricePerPerson <= budgetPerPerson)
+    ? deals.filter((d, i) => !currencyKnownByIndex.get(i) || d.pricePerPerson <= budgetPerPerson)
     : deals;
 
   // Sort by deal confidence descending
