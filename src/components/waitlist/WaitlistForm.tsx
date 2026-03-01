@@ -51,7 +51,7 @@ export default function WaitlistForm({ lastQuery = '' }: WaitlistFormProps) {
     return (
       <section id="waitlist" className="py-20 bg-foreground">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center">
-          <div className="text-4xl mb-5">&#10003;</div>
+          <div className="text-4xl mb-5 text-white">&#10003;</div>
           <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mb-3">Welcome aboard</h2>
           <p className="text-white/60 text-base">
             We&apos;ll be in touch when it&apos;s time to set off.
