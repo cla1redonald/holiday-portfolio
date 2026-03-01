@@ -119,8 +119,16 @@ export interface FlightOffer {
   totalDuration: number;
 }
 
+export interface AncillaryResult {
+  serviceId: string;
+  type: 'baggage' | 'cancel_for_any_reason';
+  amount: number;
+  currency: string;
+  label: string;
+  passengerIds: string[];
+}
+
 export interface FlightResult {
-  // --- existing fields ---
   destination: string;
   airline: string;
   departureDate: string;
@@ -128,8 +136,6 @@ export interface FlightResult {
   pricePerPerson: number;
   currency: string;
   nights: number;
-
-  // --- new fields ---
   offerId: string;
   offerExpiresAt: string;
   cabinClass: string;
@@ -142,6 +148,7 @@ export interface FlightResult {
   airlineLogo: string | null;
   totalDuration: number;
   allOffers: FlightOffer[];
+  ancillaries: AncillaryResult[];
 }
 
 export interface StayResult {
@@ -226,6 +233,33 @@ export async function searchFlights(params: {
 
       if (!cheapest) return null;
 
+      // Fetch ancillaries for cheapest offer (requires separate call — list endpoint strips available_services)
+      let ancillaries: AncillaryResult[] = [];
+      try {
+        const detailed = await duffel.offers.get(cheapest.id, { return_available_services: true });
+        const services = (detailed.data as unknown as { available_services?: Array<{
+          id: string;
+          type: 'baggage' | 'cancel_for_any_reason';
+          total_amount: string;
+          total_currency: string;
+          passenger_ids: string[];
+          metadata?: { maximum_weight_kg?: number | null; type?: string };
+        }> }).available_services ?? [];
+
+        ancillaries = services.map(svc => ({
+          serviceId: svc.id,
+          type: svc.type,
+          amount: parseFloat(svc.total_amount),
+          currency: svc.total_currency,
+          label: svc.type === 'baggage'
+            ? `${svc.metadata?.maximum_weight_kg ?? '23'}kg checked bag`
+            : 'Cancel for any reason',
+          passengerIds: svc.passenger_ids ?? [],
+        }));
+      } catch {
+        // Non-critical — deals work fine without ancillaries
+      }
+
       const nights = Math.ceil(
         (new Date(params.returnDate).getTime() - new Date(params.departureDate).getTime()) /
           (1000 * 60 * 60 * 24)
@@ -306,6 +340,7 @@ export async function searchFlights(params: {
         airlineLogo,
         totalDuration,
         allOffers,
+        ancillaries,
       };
     } catch (err: unknown) {
       const duffelErr = err as { errors?: Array<{ message: string; title: string }> };

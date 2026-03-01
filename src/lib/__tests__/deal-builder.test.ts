@@ -53,6 +53,7 @@ function makeFlight(overrides: Partial<FlightResult> = {}): FlightResult {
       { offerId: 'off_123', pricePerPerson: 89, currency: 'GBP', airline: 'TAP', airlineLogo: null, stops: 0, totalDuration: 160 },
       { offerId: 'off_456', pricePerPerson: 125, currency: 'GBP', airline: 'BA', airlineLogo: null, stops: 1, totalDuration: 240 },
     ],
+    ancillaries: [],
     ...overrides,
   };
 }
@@ -471,6 +472,72 @@ describe('deal-builder — buildDeals', () => {
   // =========================================================================
   // Price logging
   // =========================================================================
+
+  // =========================================================================
+  // Ancillaries
+  // =========================================================================
+
+  describe('ancillaries', () => {
+    it('attaches viable ancillaries to deals', async () => {
+      const flight = makeFlight({
+        ancillaries: [
+          { serviceId: 'svc_bag', type: 'baggage', amount: 30, currency: 'GBP', label: '23kg checked bag', passengerIds: ['pas_1'] },
+        ],
+      });
+
+      const deals = await buildDeals({ ...defaultParams, flights: [flight] });
+
+      expect(deals[0].ancillaries).toHaveLength(1);
+      expect(deals[0].ancillaries![0].category).toBe('bags');
+      expect(deals[0].ancillaries![0].customerPrice).toBe(33); // £30 + 10% markup = £33
+      expect(deals[0].ancillaries![0].serviceId).toBe('svc_bag');
+    });
+
+    it('filters out cheap ancillaries below £20 minimum', async () => {
+      const flight = makeFlight({
+        ancillaries: [
+          { serviceId: 'svc_cheap', type: 'baggage', amount: 10, currency: 'GBP', label: '10kg bag', passengerIds: ['pas_1'] },
+        ],
+      });
+
+      const deals = await buildDeals({ ...defaultParams, flights: [flight] });
+
+      expect(deals[0].ancillaries).toHaveLength(0);
+    });
+
+    it('includes CFAR ancillaries as flexibility category', async () => {
+      const flight = makeFlight({
+        ancillaries: [
+          { serviceId: 'svc_cfar', type: 'cancel_for_any_reason', amount: 25, currency: 'GBP', label: 'Cancel for any reason', passengerIds: ['pas_1'] },
+        ],
+      });
+
+      const deals = await buildDeals({ ...defaultParams, flights: [flight] });
+
+      expect(deals[0].ancillaries).toHaveLength(1);
+      expect(deals[0].ancillaries![0].category).toBe('flexibility');
+    });
+
+    it('returns empty ancillaries when flight has none', async () => {
+      const deals = await buildDeals(defaultParams);
+
+      expect(deals[0].ancillaries).toEqual([]);
+    });
+
+    it('deduplicates by category, keeping cheapest', async () => {
+      const flight = makeFlight({
+        ancillaries: [
+          { serviceId: 'svc_bag_1', type: 'baggage', amount: 40, currency: 'GBP', label: '30kg bag', passengerIds: ['pas_1'] },
+          { serviceId: 'svc_bag_2', type: 'baggage', amount: 25, currency: 'GBP', label: '15kg bag', passengerIds: ['pas_1'] },
+        ],
+      });
+
+      const deals = await buildDeals({ ...defaultParams, flights: [flight] });
+
+      expect(deals[0].ancillaries).toHaveLength(1);
+      expect(deals[0].ancillaries![0].serviceId).toBe('svc_bag_2');
+    });
+  });
 
   describe('price logging', () => {
     it('calls logPriceObservations with observations from all flight offers', async () => {

@@ -1,6 +1,6 @@
 # Roami Issues Log
 
-Last updated: 2026-03-01
+Last updated: 2026-03-02
 
 ## Critical (P0) — Must Fix
 
@@ -56,14 +56,14 @@ Last updated: 2026-03-01
 
 | # | Feature | Reference | Status |
 |---|---------|-----------|--------|
-| 24 | Replace hardcoded iata-codes.ts with Duffel Places API | [Places API](https://duffel.com/docs/api/v2/places) — `duffel.suggestions.list()` for dynamic city lookups | BACKLOG |
-| 25 | Flight ancillaries (seat selection, bags, meals) | [Ancillaries Component](https://duffel.com/docs/guides/ancillaries-component) — Duffel drop-in React component. Has built-in `markup` prop (`{ amount, rate }` per category) — use `filterViableAncillaries()` for category gating, let the Duffel component handle price display. Rate applied first, then flat amount. Cannot supply both `markup` and `priceFormatters` simultaneously. | BACKLOG |
+| 24 | Replace hardcoded iata-codes.ts with Duffel Places API | Supabase primary + Duffel Places API fallback in `duffel-client.ts` | DONE |
+| 25 | Flight ancillaries (bags, flexible cancellation) | Pricing logic in `pricing.ts`, fetch via `offers.get()` in `duffel-client.ts`, displayed in DealCard. Bags + CFAR supported; seats/meals require separate APIs (disabled). | DONE |
 | 26 | 3D Secure card payment flow | [Card Form + 3DS](https://duffel.com/docs/guides/card-form-component-with-3dsecure) — Duffel payment component. Depends on #29 (Payment Intent flow). | BACKLOG |
-| 27 | Dynamic pricing engine with margin/markup | [Margin & Markups](https://duffel.com/docs/guides/margin-and-markups) — Duffel has three markup routes: (1) Payment Intents — inflate amount, difference is markup; (2) Sessions API (`markup_rate`, `markup_amount`) for Duffel Links; (3) Ancillaries Component `markup` prop. Our `pricing.ts` calculates customer prices; at booking time, feed those into Payment Intent. | BACKLOG |
-| 28 | Duffel Assistant for customer service | [Duffel Assistant](https://duffel.com/docs/guides/integrating-the-duffel-assistant) — embedded support widget | BACKLOG |
-| 29 | Payment Intent markup integration | [Payment Intents API](https://duffel.com/docs/api/payment-intents) — No `markup_amount` on Create Order. Markup is applied by creating a Payment Intent where amount > offer cost. Formula: `((offer total + markup) × FX rate) / (1 - payment_fee%)`. `calculateDealPricing().totalCustomerPays` feeds into this. Duffel dashboard shows markup split on Balance page. Default max 5,000 GBP per intent (contact Duffel for higher). Depends on #26. | BACKLOG |
-| 30 | Live FX rates for payment processing | [Margin & Markups](https://duffel.com/docs/guides/margin-and-markups) — `deal-builder.ts` uses static FX rates (EUR: 0.86, USD: 0.79). At payment time, need live mid-market rates + 2% buffer to cover Duffel Payments FX fee. Duffel recommends fixer.io or similar. Only needed when customer currency differs from settlement (GBP). | BACKLOG |
-| 31 | Transparent pricing — customer vs airline price visibility | [Margin & Markups](https://duffel.com/docs/guides/margin-and-markups) — If a customer checks their booking reference on the airline website, they will see the price excluding our markup. Proactive transparency is better than customers discovering this — frame as honesty. See #32-34. | BACKLOG |
-| 32 | Tiered pricing: expose price breakdown on Deal type | [research-8](../research/research-8-tiered-pricing-model.md) — Add `airlinePrice` and `serviceFee` fields to `Deal` interface. `calculateDealPricing()` already computes `costPricePerPerson` and `customerPricePerPerson` — expose the split. Low complexity, no auth needed. | BACKLOG |
+| 27 | Dynamic pricing engine with margin/markup | Full fee model in `pricing.ts` — Duffel fees, payment processing, ATOL, 5% markup, loss-maker detection. Feeds into Payment Intent at booking time. | DONE |
+| 28 | Duffel Assistant for customer service | Premature — no customers yet. Add when needed. | REMOVED |
+| 29 | Payment Intent markup integration | [Payment Intents API](https://duffel.com/docs/api/payment-intents) — `calculateDealPricing().totalCustomerPays` feeds into Payment Intent amount. Depends on booking flow (#35). | BACKLOG |
+| 30 | Live FX rates for payment processing | `fx-rates.ts` fetches from open.er-api.com with 24h cache + fallback. Remaining: 2% buffer at payment time (ties into #29). | DONE |
+| 31 | Transparent pricing — customer vs airline price visibility | `PriceBreakdown` on Deal type exposes flightCost, hotelCost, subtotal, markup, total. DealCard renders breakdown. | DONE |
+| 32 | Tiered pricing: expose price breakdown on Deal type | `PriceBreakdown` already exposes cost vs markup split on every deal. | DONE |
 | 33 | Tiered pricing: £1.50 price unlock (per deal) | [research-8](../research/research-8-tiered-pricing-model.md) — Pay £1.50 to see airline fare vs Roami fee breakdown for a specific deal. Still books at 5%. Pure profit (no markup reduction). Needs Stripe microtransaction, no auth. Drives conversion to Pro. | BACKLOG |
 | 34 | Tiered pricing: Roami Pro subscription (£24.99/yr, 2% fee) | [research-8](../research/research-8-tiered-pricing-model.md) — Subscribers see breakdown always + book at 2% instead of 5%. Profitable up to 5 bookings/yr on flights alone. Needs auth + Stripe billing. Make `PRICING_CONFIG.markup.orderPercentage` tier-aware (accept markup% as param). | BACKLOG |

@@ -182,4 +182,4 @@ npx tsc --noEmit    # typecheck
 npm run build       # production build
 ```
 
-**94 tests across 7 files** covering: deal builder, pricing engine, FX rates, price intelligence, Duffel client, embedding generation, and destination search. Tests use `vi.mock` to isolate external API calls — no real API calls in the test suite.
+**103 tests across 7 files** covering: deal builder, pricing engine, FX rates, price intelligence, Duffel client, embedding generation, and destination search. Tests use `vi.mock` to isolate external API calls — no real API calls in the test suite.

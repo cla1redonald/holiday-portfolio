@@ -1,7 +1,7 @@
-import { Deal, PriceBreakdown, FlightDetail, PriceContext, SessionProfile, FlightOffer as FlightOfferType } from '@/types';
+import { Deal, DealAncillary, PriceBreakdown, FlightDetail, PriceContext, SessionProfile, FlightOffer as FlightOfferType } from '@/types';
 import { FlightResult, StayResult } from './duffel-client';
 import { getMarketPrice, getPricePercentile, logPriceObservations, PriceObservation } from './price-intelligence';
-import { calculateDealPricing, isBelowMinimumFlightValue } from './pricing';
+import { calculateDealPricing, isBelowMinimumFlightValue, filterViableAncillaries, AncillaryCategory } from './pricing';
 import { getRate } from './fx-rates';
 
 export interface ResolvedDestinationMeta {
@@ -362,6 +362,33 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
       }))
     );
 
+    // Process ancillaries: convert to GBP, deduplicate by category, filter viable
+    const categoryMap: Record<string, AncillaryCategory> = {
+      baggage: 'bags',
+      cancel_for_any_reason: 'flexibility',
+    };
+    const rawAnc = flight.ancillaries ?? [];
+    const convertedAnc = await Promise.all(rawAnc.map(async (a) => ({
+      ...a,
+      gbpAmount: (await toGBP(a.amount, a.currency)).gbp,
+      category: categoryMap[a.type] as AncillaryCategory | undefined,
+    })));
+    // Keep only known categories, deduplicate (cheapest per category)
+    const byCat = new Map<AncillaryCategory, typeof convertedAnc[number]>();
+    for (const a of convertedAnc) {
+      if (!a.category) continue;
+      const existing = byCat.get(a.category);
+      if (!existing || a.gbpAmount < existing.gbpAmount) byCat.set(a.category, a);
+    }
+    const deduped = [...byCat.values()];
+    const viable = filterViableAncillaries(deduped.map(a => ({ category: a.category!, priceGBP: a.gbpAmount })));
+    const dealAncillaries: DealAncillary[] = viable.map((v, i) => ({
+      serviceId: deduped[i].serviceId,
+      category: v.category as 'bags' | 'flexibility',
+      label: deduped[i].label,
+      customerPrice: v.pricing.customerPrice,
+    }));
+
     currencyKnownByIndex.set(deals.length, currencyKnown);
     deals.push({
       id: `duffel-${flight.destination}-${flight.departureDate}-${flight.airline.replace(/\s+/g, '')}-${index}`,
@@ -385,6 +412,7 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
       alternativeFlights,
       netMargin: Math.round(dealPricing.netMargin * 100) / 100,
       isLossMaker: dealPricing.isLossMaker,
+      ancillaries: dealAncillaries,
     });
 
     // Collect price observations for logging

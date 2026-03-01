@@ -181,6 +181,18 @@ export default function DealCard({ deal }: DealCardProps) {
           </span>
         </div>
 
+        {/* Ancillaries */}
+        {deal.ancillaries && deal.ancillaries.length > 0 && (
+          <p className="text-[11px] text-secondary/60">
+            {deal.ancillaries.map((a, i) => (
+              <span key={a.serviceId}>
+                {i > 0 && ' · '}
+                {a.category === 'bags' ? `Add bag from £${a.customerPrice}` : `Flexible cancellation £${a.customerPrice}`}
+              </span>
+            ))}
+          </p>
+        )}
+
         {/* Price */}
         <div className="mt-auto pt-2 border-t border-border/40">
           <div className="flex items-baseline gap-2">

@@ -7,12 +7,14 @@ import { describe, it, expect, vi, beforeEach, afterEach } from 'vitest';
 const mockStaysSearch = vi.fn();
 const mockOfferRequestsCreate = vi.fn();
 const mockOffersList = vi.fn();
+const mockOffersGet = vi.fn();
 
 vi.mock('@duffel/api', () => ({
   Duffel: vi.fn(() => ({
     stays: { search: mockStaysSearch },
     offerRequests: { create: mockOfferRequestsCreate },
-    offers: { list: mockOffersList },
+    offers: { list: mockOffersList, get: mockOffersGet },
+    suggestions: { list: vi.fn(() => Promise.resolve({ data: [] })) },
   })),
 }));
 
@@ -21,7 +23,7 @@ vi.mock('../destination-search', () => ({
 }));
 
 // Import AFTER mocks are declared
-import { searchStays, type StayResult } from '../duffel-client';
+import { searchFlights, searchStays, type StayResult } from '../duffel-client';
 
 // ---------------------------------------------------------------------------
 // Helpers — build realistic SDK-shaped responses
@@ -481,5 +483,121 @@ describe('searchStays — Duffel SDK integration', () => {
 
     expect(results).toEqual([]);
     consoleSpy.mockRestore();
+  });
+});
+
+// ---------------------------------------------------------------------------
+// searchFlights — ancillary fetching
+// ---------------------------------------------------------------------------
+
+describe('searchFlights — ancillary fetching', () => {
+  const flightResolvedDestinations = [
+    { slug: 'lisbon', iata: 'LIS', name: 'Lisbon', country: 'Portugal', latitude: 38.7223, longitude: -9.1393, imageUrl: 'https://example.com/lisbon.jpg' },
+  ];
+
+  const flightParams = {
+    destinations: ['lisbon'],
+    origin: 'LHR',
+    departureDate: '2026-04-15',
+    returnDate: '2026-04-18',
+    travellers: 1,
+    resolvedDestinations: flightResolvedDestinations,
+  };
+
+  function makeDuffelOffer(id: string) {
+    return {
+      id,
+      total_amount: '89.00',
+      total_currency: 'GBP',
+      expires_at: '2026-04-14T12:00:00Z',
+      slices: [
+        { segments: [{ departing_at: '2026-04-15T06:00:00Z', arriving_at: '2026-04-15T08:40:00Z', duration: 'PT2H40M' }] },
+        { segments: [{ departing_at: '2026-04-18T17:00:00Z', arriving_at: '2026-04-18T19:30:00Z', duration: 'PT2H30M' }] },
+      ],
+      passengers: [{ baggages: [] }],
+      owner: { name: 'TAP', logo_symbol_url: null },
+    };
+  }
+
+  beforeEach(() => {
+    vi.clearAllMocks();
+    mockOfferRequestsCreate.mockResolvedValue({ data: { id: 'orq_123' } });
+    mockOffersList.mockResolvedValue({ data: [makeDuffelOffer('off_123')] });
+    mockOffersGet.mockResolvedValue({
+      data: {
+        ...makeDuffelOffer('off_123'),
+        available_services: [],
+      },
+    });
+  });
+
+  it('fetches ancillaries via offers.get with return_available_services', async () => {
+    mockOffersGet.mockResolvedValue({
+      data: {
+        ...makeDuffelOffer('off_123'),
+        available_services: [
+          {
+            id: 'ase_bag_1',
+            type: 'baggage',
+            total_amount: '30.00',
+            total_currency: 'GBP',
+            passenger_ids: ['pas_1'],
+            metadata: { maximum_weight_kg: 23, type: 'checked' },
+          },
+        ],
+      },
+    });
+
+    const results = await searchFlights(flightParams);
+
+    expect(mockOffersGet).toHaveBeenCalledWith('off_123', { return_available_services: true });
+    expect(results[0].ancillaries).toHaveLength(1);
+    expect(results[0].ancillaries[0]).toEqual({
+      serviceId: 'ase_bag_1',
+      type: 'baggage',
+      amount: 30,
+      currency: 'GBP',
+      label: '23kg checked bag',
+      passengerIds: ['pas_1'],
+    });
+  });
+
+  it('parses CFAR ancillaries correctly', async () => {
+    mockOffersGet.mockResolvedValue({
+      data: {
+        ...makeDuffelOffer('off_123'),
+        available_services: [
+          {
+            id: 'ase_cfar_1',
+            type: 'cancel_for_any_reason',
+            total_amount: '28.00',
+            total_currency: 'GBP',
+            passenger_ids: ['pas_1'],
+            metadata: { refund_amount: '75.00', terms_and_conditions_url: 'https://example.com' },
+          },
+        ],
+      },
+    });
+
+    const results = await searchFlights(flightParams);
+
+    expect(results[0].ancillaries).toHaveLength(1);
+    expect(results[0].ancillaries[0].type).toBe('cancel_for_any_reason');
+    expect(results[0].ancillaries[0].label).toBe('Cancel for any reason');
+  });
+
+  it('returns empty ancillaries when offers.get fails', async () => {
+    mockOffersGet.mockRejectedValue(new Error('Service unavailable'));
+
+    const results = await searchFlights(flightParams);
+
+    expect(results).toHaveLength(1);
+    expect(results[0].ancillaries).toEqual([]);
+  });
+
+  it('returns empty ancillaries when no services available', async () => {
+    const results = await searchFlights(flightParams);
+
+    expect(results[0].ancillaries).toEqual([]);
   });
 });

@@ -22,6 +22,8 @@ export interface Deal {
   netMargin?: number;
   /** True if this deal costs us more than we earn */
   isLossMaker?: boolean;
+  /** Available ancillary services (bags, flexible cancellation) with customer pricing */
+  ancillaries?: DealAncillary[];
 }
 
 export interface SearchResult {
@@ -96,6 +98,13 @@ export interface SessionProfile {
   dismissedPreferences: string[];          // tags the user explicitly dismissed
   createdAt: string;
   lastSearchAt: string;
+}
+
+export interface DealAncillary {
+  serviceId: string;
+  category: 'bags' | 'flexibility';
+  label: string;
+  customerPrice: number;
 }
 
 export interface FlightOffer {
