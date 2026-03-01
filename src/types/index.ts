@@ -98,6 +98,24 @@ export interface SessionProfile {
   dismissedPreferences: string[];          // tags the user explicitly dismissed
   createdAt: string;
   lastSearchAt: string;
+  breakdownClicks?: number;                // times user expanded a cost breakdown
+  proInterestClicked?: boolean;            // clicked "Notify me" on Pro teaser
+  proInterestEmail?: string;               // email if provided via Pro teaser
+}
+
+export interface PassengerDetails {
+  title: 'mr' | 'mrs' | 'ms' | 'miss' | 'dr';
+  givenName: string;
+  familyName: string;
+  bornOn: string;    // YYYY-MM-DD
+  gender: 'm' | 'f';
+  email: string;
+  phoneNumber: string;
+}
+
+export interface BookingConfirmation {
+  orderId: string;
+  bookingReference: string;
 }
 
 export interface DealAncillary {

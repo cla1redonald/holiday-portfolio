@@ -2,7 +2,7 @@ import { Duffel } from '@duffel/api';
 import { getDestinationBySlug } from './destination-search';
 
 // Creates a Duffel client using the API token from environment
-function getDuffel(): Duffel {
+export function getDuffel(): Duffel {
   const token = process.env.DUFFEL_API_TOKEN;
   if (!token) throw new Error('DUFFEL_API_TOKEN not configured');
   try {

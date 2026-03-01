@@ -121,6 +121,19 @@ export function dismissPreference(tag: string): SessionProfile {
   return persist(profile);
 }
 
+export function trackBreakdownClick(): void {
+  const profile = getSessionProfile();
+  profile.breakdownClicks = (profile.breakdownClicks ?? 0) + 1;
+  persist(profile);
+}
+
+export function trackProInterest(email?: string): void {
+  const profile = getSessionProfile();
+  profile.proInterestClicked = true;
+  if (email) profile.proInterestEmail = email;
+  persist(profile);
+}
+
 export function resetSession(): void {
   if (typeof window === 'undefined') return;
 

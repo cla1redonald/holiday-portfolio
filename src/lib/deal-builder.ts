@@ -22,6 +22,7 @@ interface BundleParams {
   similarityScores?: Record<string, number>;
   destinationTags?: Record<string, string[]>;
   resolvedDestinations?: Record<string, ResolvedDestinationMeta>;
+  markupPercentage?: number;
 }
 
 async function toGBP(amount: number, currency: string): Promise<{ gbp: number; known: boolean }> {
@@ -254,7 +255,7 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
     const hotelTotalGBP = hotelConv.gbp * Math.max(travellers, 1);
     const isPackage = stay != null;
 
-    const dealPricing = calculateDealPricing({ flightTotalGBP, hotelTotalGBP, travellers, isPackage });
+    const dealPricing = calculateDealPricing({ flightTotalGBP, hotelTotalGBP, travellers, isPackage, markupPercentage: params.markupPercentage });
     const subtotalPerPerson = flightConv.gbp + hotelConv.gbp;
     const markupPerPerson = dealPricing.markupRevenue / Math.max(travellers, 1);
 

@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { parseSearchQuery } from '@/lib/nlp-parser';
 import { searchFlights, searchStays, ResolvedDestination } from '@/lib/duffel-client';
+import { searchAmadeusHotels } from '@/lib/amadeus-client';
 import { buildDeals } from '@/lib/deal-builder';
 import { buildQueryText, embedText } from '@/lib/embeddings';
 import { findSimilarDestinations } from '@/lib/destination-search';
@@ -45,6 +46,9 @@ function sanitizeSessionProfile(raw: unknown): SessionProfile | null {
     dismissedPreferences,
     createdAt: typeof obj.createdAt === 'string' ? obj.createdAt.slice(0, 30) : new Date().toISOString(),
     lastSearchAt: typeof obj.lastSearchAt === 'string' ? obj.lastSearchAt.slice(0, 30) : new Date().toISOString(),
+    breakdownClicks: typeof obj.breakdownClicks === 'number' ? Math.min(Math.max(0, obj.breakdownClicks), 10000) : undefined,
+    proInterestClicked: typeof obj.proInterestClicked === 'boolean' ? obj.proInterestClicked : undefined,
+    proInterestEmail: typeof obj.proInterestEmail === 'string' ? obj.proInterestEmail.slice(0, 200) : undefined,
   };
 }
 
@@ -194,7 +198,7 @@ export async function POST(request: NextRequest) {
       returnDate = addDays(now, 21 + intent.nights);
     }
     // Step 3: Search flights and stays in parallel
-    const [flights, stays] = await Promise.all([
+    const [flights, duffelStays] = await Promise.all([
       searchFlights({
         destinations,
         origin: intent.originAirport ?? undefined,
@@ -211,6 +215,23 @@ export async function POST(request: NextRequest) {
         resolvedDestinations,
       }),
     ]);
+
+    // Step 3.5: If Duffel Stays returned nothing, try Amadeus for hotel data
+    let stays = duffelStays;
+    if (duffelStays.length === 0 && resolvedDestinations.length > 0) {
+      const amadeusResults = await Promise.all(
+        resolvedDestinations
+          .filter(rd => rd.slug)
+          .map(rd => searchAmadeusHotels({
+            cityCode: rd.iata,
+            checkIn: departureDate,
+            checkOut: returnDate,
+            guests: intent.travellers,
+            destination: rd.slug!,
+          }))
+      );
+      stays = amadeusResults.flat();
+    }
 
     // Step 4: Bundle into deals (async — fetches market price data)
     const resolvedMap: Record<string, { iata: string; country: string; imageUrl: string; seedPriceGbp: number | null }> = {};

@@ -1,7 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { Deal } from '@/types';
+import { setSelectedDeal } from '@/lib/deal-store';
+import { trackBreakdownClick } from '@/lib/session-preferences';
 
 interface DealCardProps {
   deal: Deal;
@@ -41,13 +45,22 @@ function ConfidenceBadge({ score }: { score: number }) {
 }
 
 export default function DealCard({ deal }: DealCardProps) {
+  const router = useRouter();
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
+
   const savings = deal.originalPrice - deal.pricePerPerson;
   const savingsPct = deal.originalPrice > deal.pricePerPerson
     ? Math.round((savings / deal.originalPrice) * 100)
     : 0;
 
-  const scrollToWaitlist = () => {
-    document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
+  const handleViewDeal = () => {
+    setSelectedDeal(deal);
+    router.push(`/deal/${deal.id}`);
+  };
+
+  const handleExpandBreakdown = () => {
+    setBreakdownOpen(true);
+    trackBreakdownClick();
   };
 
   // Extract airline from highlights if present (fallback for deals without flight data)
@@ -207,12 +220,21 @@ export default function DealCard({ deal }: DealCardProps) {
             <span className="text-secondary text-xs ml-auto">per person</span>
           </div>
 
-          {/* Price breakdown */}
+          {/* Price breakdown — gated behind expand link */}
           {deal.pricing && (
-            <p className="text-[11px] text-secondary/60 mt-0.5">
-              Flights £{deal.pricing.flightCost} · Hotel {deal.pricing.hotelEstimated ? '~' : ''}£{deal.pricing.hotelCost}
-              {deal.pricing.markup > 0 && ` · £${deal.pricing.markup} booking fee`}
-            </p>
+            breakdownOpen ? (
+              <p className="text-[11px] text-secondary/60 mt-0.5">
+                Flights £{deal.pricing.flightCost} · Hotel {deal.pricing.hotelEstimated ? '~' : ''}£{deal.pricing.hotelCost}
+                {deal.pricing.markup > 0 && ` · £${deal.pricing.markup} booking fee`}
+              </p>
+            ) : (
+              <button
+                onClick={handleExpandBreakdown}
+                className="text-[11px] text-teal hover:text-teal/80 mt-0.5 cursor-pointer transition-colors"
+              >
+                See cost breakdown ▼
+              </button>
+            )
           )}
 
           {/* Offer expiry */}
@@ -241,7 +263,7 @@ export default function DealCard({ deal }: DealCardProps) {
 
         {/* CTA */}
         <button
-          onClick={scrollToWaitlist}
+          onClick={handleViewDeal}
           className="w-full bg-accent hover:bg-accent/90 text-white font-display font-medium py-2.5 rounded-xl text-sm transition-all duration-200 cursor-pointer mt-1"
         >
           View Deal
