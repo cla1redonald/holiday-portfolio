@@ -14,10 +14,11 @@ An NLP-powered city break search engine with real flight data. Users type natura
 
 ### What's next
 
-Get city breaks working end-to-end for friends testing:
-1. **Hotels** — activate Duffel Stays (needs sales contact) or alternative hotel source
-2. **Booking flow** — move from "View Deal" to actual checkout
+Hotels and booking flow are now built. Remaining for friends testing:
+1. **Duffel Stays activation** — still needs sales contact. Amadeus fills the gap but Duffel Stays is preferred (commission-share, no API cost)
+2. **Production payment flow** — currently test-mode balance payment. Need DuffelCardForm + createThreeDSecureSession for real card payments
 3. **Friends testing** — give 10-20 friends access, collect qualitative feedback on whether they'd actually use this for real trips
+4. **Pro tier validation** — monitor breakdownClicks and proInterestClicked metrics from `/api/track` to gauge demand for paid tier
 
 ### Strategic context
 
@@ -47,40 +48,63 @@ A travel personalisation engine that learns how you travel, finds deals you'd lo
 
 ### Product
 - **NLP search** — natural language query → Claude Haiku parses intent → Duffel API returns real flights
+- **Hotel search** — Duffel Stays with Amadeus Hotel Search API as fallback
+- **Deal detail page** — `/deal/[id]` with flight timeline, hotel info, expandable price breakdown, ancillary selector, Pro teaser
+- **Booking flow** — passenger form → test-mode order creation via Duffel balance payment
 - **Deal cards** — real-time flight prices, deal confidence scoring, airline info, savings vs market average
 - **Preference panel** — shows inferred travel preferences from query (confidence %)
+- **Tier validation tracking** — breakdownClicks and proInterestClicked events tracked via `/api/track`
 - **Waitlist** — email capture with variant tracking, stored via API
 
 ### Tech Stack
 - Next.js 16.1.6 (App Router), TypeScript, Tailwind CSS 4
 - Claude Haiku (NLP parsing) via `@anthropic-ai/sdk`
-- Duffel API (flights) via `@duffel/api` — sandbox mode
+- Duffel API (flights + stays + booking) via `@duffel/api` — sandbox mode
+- Amadeus Hotel Search API via `amadeus` — OAuth 2.0, fallback when Duffel Stays empty
 - Vercel (hosting, serverless functions)
 - GitHub Actions (Codex auto-review on PRs)
 
 ### Architecture
 ```
 User query → POST /api/search → Claude Haiku (parse) → Duffel (flights) → Deal builder → Response
-                                                      → Duffel Stays (403 — needs sales contact)
+                                                      → Duffel Stays → (if empty) → Amadeus Hotels (fallback)
+
+Deal card click → deal-store (useSyncExternalStore) → /deal/[id] → DealDetail page
+                                                                  → Book button → BookingForm → /api/booking/confirm → Duffel order
 ```
 
 ### Key Files
 | File | Purpose |
 |------|---------|
 | `src/app/api/search/route.ts` | Main search API — rate limiting, validation, orchestration |
+| `src/app/api/booking/confirm/route.ts` | Duffel order creation (test-mode balance payment) |
+| `src/app/api/track/route.ts` | Session event tracking (breakdown clicks, Pro interest) |
+| `src/app/deal/[id]/page.tsx` | Deal detail page entry point |
 | `src/lib/nlp-parser.ts` | Claude Haiku NLP intent extraction |
 | `src/lib/duffel-client.ts` | Duffel flights + stays client |
+| `src/lib/amadeus-client.ts` | Amadeus Hotel Search fallback (OAuth 2.0, 2-step flow) |
 | `src/lib/deal-builder.ts` | Bundle flights into Deal objects with confidence scoring |
-| `src/lib/search-engine.ts` | Mock fallback (27 hardcoded deals) |
+| `src/lib/pricing.ts` | Pricing engine with parameterised markup |
+| `src/lib/deal-store.ts` | Client-side deal store (useSyncExternalStore) |
+| `src/lib/session-preferences.ts` | Client-side session + tracking helpers |
+| `src/components/deal/DealDetail.tsx` | Deal detail page — flight timeline, hotel info, price context |
+| `src/components/deal/PriceSummary.tsx` | Gated price breakdown + Pro teaser + ancillary selector |
+| `src/components/booking/BookingForm.tsx` | Passenger form + payment step machine |
 | `src/components/demo/NlpSearchDemo.tsx` | Search hero — the main product UI |
-| `src/components/demo/DealCard.tsx` | Deal result cards |
+| `src/components/demo/DealCard.tsx` | Deal result cards (clickable → deal detail) |
 | `src/types/index.ts` | All TypeScript interfaces |
 
 ### Environment Variables (`.env.local`)
 ```
-ANTHROPIC_API_KEY=sk-ant-...
-DUFFEL_API_TOKEN=duffel_test_...
-OPENAI_API_KEY=sk-proj-...  (for Codex PR reviews)
+ANTHROPIC_API_KEY=sk-ant-...       # Required — Claude Haiku NLP parsing
+DUFFEL_API_TOKEN=duffel_test_...   # Required — flights, stays, booking
+OPENAI_API_KEY=sk-proj-...         # Optional — semantic embeddings (degrades to keyword without)
+SUPABASE_URL=https://...           # Required — vector search, sessions
+SUPABASE_SERVICE_ROLE_KEY=...      # Required — Supabase access
+UPSTASH_REDIS_REST_URL=...         # Optional — market price intelligence
+UPSTASH_REDIS_REST_TOKEN=...       # Optional — market price intelligence
+AMADEUS_API_KEY=...                # Optional — hotel search fallback (estimated data without)
+AMADEUS_API_SECRET=...             # Optional — hotel search fallback
 ```
 
 ---
@@ -89,18 +113,20 @@ OPENAI_API_KEY=sk-proj-...  (for Codex PR reviews)
 
 ### Immediate (from issues log)
 See `docs/issues-log.md` for full backlog. Key items:
-- **Duffel Stays API** — returns 403, need to contact Duffel sales for access
-- **Hotel bundling** — flights work, hotels are placeholder pricing
+- **Duffel Stays activation** — returns 403, need to contact Duffel sales. Amadeus fills the gap meanwhile
+- **Production card payments** — DuffelCardForm + createThreeDSecureSession needed for real payments
 - **Origin airport selection** — hardcoded to LHR, should be configurable
 - **Caching** — no flight result caching, every search hits Duffel
 - **Error UX** — generic error messages, no retry with modified query
+- **Hotel booking** — only flight orders are created. Hotel booking is display-only
 
 ### Product Roadmap (from strategy)
 See `docs/strategy/13-phase-1-plan.md` for full Phase 1 plan:
-1. **Preference graph** — persist user preferences across sessions (vector DB)
-2. **Portfolio view** — budget tracker, trip history, planned trips
-3. **Booking flow** — move from "View Deal" → actual checkout
-4. **Revenue** — commission via Duffel, bed bank net rates, dynamic packaging
+1. ~~**Booking flow** — move from "View Deal" → actual checkout~~ **DONE** (test mode)
+2. **Pro tier** — breakdownClicks and proInterestClicked are being tracked. If demand validates, implement 2% markup tier
+3. **Preference graph** — persist user preferences across sessions (vector DB)
+4. **Portfolio view** — budget tracker, trip history, planned trips
+5. **Revenue** — commission via Duffel, bed bank net rates, dynamic packaging
 
 ---
 

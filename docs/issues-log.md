@@ -44,13 +44,13 @@ Last updated: 2026-03-02
 
 | # | Issue | Reference | Status |
 |---|-------|-----------|--------|
-| 35 | Design full single-page UX flow beyond search → waitlist CTA | All current components | BACKLOG |
-| | — Search → results → deal detail → booking intent flow | pricing.ts, deal-builder.ts | |
-| | — Integrate pricing engine concepts (transparent pricing, price breakdown, service fee visibility) | research-8-tiered-pricing-model.md | |
-| | — Integrate recommendation engine concepts (preference learning, confidence explanation, personalisation signals) | session-preferences.ts, deal-builder.ts | |
-| | — Payment/subscription UX (free tier, price unlock, Pro) | research-8, issues #32-34 | |
-| | — What happens when user clicks "View Deal"? Full journey to booking | issues #26, #29 | |
-| | **Approach:** Use @strategist + @designer to design the flow before building. Start with user journey mapping, then screen specs, then implement. | | |
+| 35 | Design full single-page UX flow beyond search → waitlist CTA | All current components | PARTIAL |
+| | — ~~Search → results → deal detail → booking intent flow~~ | `/deal/[id]`, DealDetail, BookingForm | DONE (c50858c) |
+| | — ~~Integrate pricing engine concepts (transparent pricing, price breakdown, service fee visibility)~~ | PriceSummary.tsx, gated breakdown | DONE (c50858c) |
+| | — ~~Integrate recommendation engine concepts (preference learning, confidence explanation, personalisation signals)~~ | session-preferences.ts, deal-builder.ts | DONE (c50858c) |
+| | — Payment/subscription UX (free tier, price unlock, Pro) | research-8, issues #32-34 | BACKLOG |
+| | — ~~What happens when user clicks "View Deal"? Full journey to booking~~ | DealCard → `/deal/[id]` → BookingForm → `/api/booking/confirm` | DONE (c50858c) |
+| | **Remaining:** Pro subscription UX, Stripe price-unlock microtransaction, production card payments. | | |
 
 ## Feature Backlog — Enhancements
 
@@ -65,5 +65,5 @@ Last updated: 2026-03-02
 | 30 | Live FX rates for payment processing | `fx-rates.ts` fetches from open.er-api.com with 24h cache + fallback. Remaining: 2% buffer at payment time (ties into #29). | DONE |
 | 31 | Transparent pricing — customer vs airline price visibility | `PriceBreakdown` on Deal type exposes flightCost, hotelCost, subtotal, markup, total. DealCard renders breakdown. | DONE |
 | 32 | Tiered pricing: expose price breakdown on Deal type | `PriceBreakdown` already exposes cost vs markup split on every deal. | DONE |
-| 33 | Tiered pricing: £1.50 price unlock (per deal) | [research-8](../research/research-8-tiered-pricing-model.md) — Pay £1.50 to see airline fare vs Roami fee breakdown for a specific deal. Still books at 5%. Pure profit (no markup reduction). Needs Stripe microtransaction, no auth. Drives conversion to Pro. | BACKLOG |
+| 33 | Tiered pricing: £1.50 price unlock (per deal) | [research-8](../research/research-8-tiered-pricing-model.md) — Pay £1.50 to see airline fare vs Roami fee breakdown for a specific deal. Still books at 5%. Pure profit (no markup reduction). Needs Stripe microtransaction, no auth. Drives conversion to Pro. **Demand validation in place:** breakdownClicks tracked via `/api/track` (c50858c). | BACKLOG |
 | 34 | Tiered pricing: Roami Pro subscription (£24.99/yr, 2% fee) | [research-8](../research/research-8-tiered-pricing-model.md) — Subscribers see breakdown always + book at 2% instead of 5%. Profitable up to 5 bookings/yr on flights alone. Needs auth + Stripe billing. Make `PRICING_CONFIG.markup.orderPercentage` tier-aware (accept markup% as param). | BACKLOG |

@@ -16,11 +16,13 @@ flowchart LR
     B --> C[OpenAI\ntext-embedding-3-small]
     C --> D[Supabase pgvector\n447 destinations · HNSW index]
     D --> E[Duffel API\nFlights + Stays]
+    D --> E2[Amadeus API\nHotel fallback]
     E --> F[Deal Builder\nPricing · FX · Scoring]
+    E2 --> F
     F --> G[Scored deals\nwith confidence ratings]
 ```
 
-The search pipeline is a single POST to `/api/search`. Claude Haiku extracts structured intent from the query (destinations, dates, budget, traveller count, interests). That intent is embedded and matched against 447 pre-embedded destinations via cosine similarity. Matched destinations feed parallel Duffel API calls for flights and stays. The deal builder assembles results, converts currencies, applies the pricing model, scores each deal across five factors, and strips internal margin data before returning to the client.
+The search pipeline is a single POST to `/api/search`. Claude Haiku extracts structured intent from the query (destinations, dates, budget, traveller count, interests). That intent is embedded and matched against 447 pre-embedded destinations via cosine similarity. Matched destinations feed parallel Duffel API calls for flights and stays, with Amadeus Hotel Search as a fallback when Duffel Stays returns empty. The deal builder assembles results, converts currencies, applies the pricing model, scores each deal across five factors, and strips internal margin data before returning to the client.
 
 ---
 
@@ -102,6 +104,7 @@ Full strategy corpus: [`docs/strategy/`](docs/strategy/)
 | TypeScript | Type safety throughout |
 | Supabase (pgvector, RLS) | Vector search and session storage |
 | Duffel API (`@duffel/api`) | Live flights and stays |
+| Amadeus (`amadeus`) | Hotel search fallback when Duffel Stays is empty |
 | Claude Haiku 4.5 (`@anthropic-ai/sdk`) | NLP query parsing |
 | OpenAI `text-embedding-3-small` | Destination embeddings |
 | Upstash Redis (`@upstash/redis`) | Market price intelligence cache |
@@ -132,7 +135,7 @@ npm run dev
 
 **Required env vars:** `ANTHROPIC_API_KEY`, `DUFFEL_API_TOKEN`, `SUPABASE_URL`, `SUPABASE_SERVICE_ROLE_KEY`
 
-**Optional:** `OPENAI_API_KEY` (search degrades to keyword matching without it), `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (market price intelligence disabled without them)
+**Optional:** `OPENAI_API_KEY` (search degrades to keyword matching without it), `UPSTASH_REDIS_REST_URL` + `UPSTASH_REDIS_REST_TOKEN` (market price intelligence disabled without them), `AMADEUS_API_KEY` + `AMADEUS_API_SECRET` (hotel search falls back to estimated data without them)
 
 ---
 
@@ -144,22 +147,30 @@ roami/
 │   ├── app/
 │   │   ├── api/
 │   │   │   ├── search/            # POST /api/search — main search endpoint
+│   │   │   ├── booking/confirm/   # POST /api/booking/confirm — order creation via Duffel
+│   │   │   ├── track/             # POST /api/track — session event tracking
 │   │   │   ├── waitlist/          # POST /api/waitlist — email capture
 │   │   │   └── health/            # GET /api/health — liveness probe
+│   │   ├── deal/[id]/             # Deal detail page (flight timeline, hotel, price breakdown)
 │   │   └── page.tsx               # Landing page and search UI
 │   ├── lib/
 │   │   ├── nlp-parser.ts          # Claude Haiku intent extraction
 │   │   ├── embeddings.ts          # OpenAI embedding generation
 │   │   ├── destination-search.ts  # Supabase pgvector cosine similarity
 │   │   ├── duffel-client.ts       # Duffel flight and stays API client
+│   │   ├── amadeus-client.ts      # Amadeus hotel search (fallback when Duffel Stays empty)
 │   │   ├── deal-builder.ts        # Deal assembly and 5-factor confidence scoring
-│   │   ├── pricing.ts             # Duffel fee model, markup, and ATOL
+│   │   ├── deal-store.ts          # In-memory deal cache for detail page lookups
+│   │   ├── pricing.ts             # Duffel fee model, markup (tier-aware), and ATOL
 │   │   ├── fx-rates.ts            # Live exchange rates with 24h cache
 │   │   ├── price-intelligence.ts  # Upstash Redis price tracking
 │   │   ├── session-store.ts       # Server-side session (Supabase)
-│   │   ├── session-preferences.ts # Client-side preference tracking
-│   │   └── __tests__/             # 103 unit tests across 7 files
-│   ├── components/                # React components (deal cards, search bar, preferences panel)
+│   │   ├── session-preferences.ts # Client-side preference + tracking (breakdown clicks, Pro interest)
+│   │   └── __tests__/             # 114 unit tests across 8 files
+│   ├── components/
+│   │   ├── deal/                  # Deal detail (DealDetail, FlightTimeline, PriceSummary, AncillarySelector, ProTeaser)
+│   │   ├── booking/               # Booking flow (BookingForm, PassengerForm, PaymentSection)
+│   │   └── demo/                  # Search UI (NlpSearchDemo, DealCard, PreferencesPanel)
 │   └── types/
 │       └── index.ts               # Shared TypeScript types
 ├── docs/
@@ -182,4 +193,4 @@ npx tsc --noEmit    # typecheck
 npm run build       # production build
 ```
 
-**103 tests across 7 files** covering: deal builder, pricing engine, FX rates, price intelligence, Duffel client, embedding generation, and destination search. Tests use `vi.mock` to isolate external API calls — no real API calls in the test suite.
+**114 tests across 8 files** covering: deal builder, pricing engine, FX rates, price intelligence, Duffel client, Amadeus client, embedding generation, and destination search. Tests use `vi.mock` to isolate external API calls — no real API calls in the test suite.
