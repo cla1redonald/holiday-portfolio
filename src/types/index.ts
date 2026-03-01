@@ -12,6 +12,10 @@ export interface Deal {
   confidenceRationale: string;
   tags: string[];
   highlights: string[];
+  /** Net margin in GBP (negative = loss-maker). Only set for Duffel deals. */
+  netMargin?: number;
+  /** True if this deal costs us more than we earn */
+  isLossMaker?: boolean;
 }
 
 export interface SearchResult {

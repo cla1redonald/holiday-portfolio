@@ -1,6 +1,7 @@
 import { Deal } from '@/types';
 import { FlightResult, StayResult } from './duffel-client';
 import { getDestinationImage, getCountry } from './iata-codes';
+import { calculateDealPricing, isBelowMinimumFlightValue } from './pricing';
 
 interface BundleParams {
   flights: FlightResult[];
@@ -126,7 +127,23 @@ export function buildDeals({ flights, stays, interests, travellers, budgetPerPer
     const flightConv = toGBP(flight.pricePerPerson, flight.currency);
     const hotelConv = stay ? toGBP(hotelPerPerson, stay.currency) : { gbp: hotelPerPerson, known: true };
     const currencyKnown = flightConv.known && hotelConv.known;
-    const totalPerPerson = flightConv.gbp + hotelConv.gbp;
+
+    // --- Pricing engine: calculate costs, markup, and margin ---
+    const flightTotalGBP = flightConv.gbp * Math.max(travellers, 1);
+    const hotelTotalGBP = hotelConv.gbp * Math.max(travellers, 1);
+    // Only treat as a package (triggering ATOL) when we have a real stay match,
+    // not an estimated hotel placeholder
+    const isPackage = stay != null;
+
+    const pricing = calculateDealPricing({
+      flightTotalGBP,
+      hotelTotalGBP,
+      travellers,
+      isPackage,
+    });
+
+    // Use the customer-facing price (with markup applied)
+    const totalPerPerson = pricing.customerPricePerPerson;
     const avgPrice = AVG_PRICES[flight.destination] ?? 350;
     const originalPrice = totalPerPerson < avgPrice ? avgPrice : Math.round(totalPerPerson);
 
@@ -135,6 +152,10 @@ export function buildDeals({ flights, stays, interests, travellers, budgetPerPer
       totalPerPerson,
       interests
     );
+
+    // Penalise confidence for loss-making deals
+    const belowMinFlight = isBelowMinimumFlightValue(flightTotalGBP);
+    const confidenceAdjustment = pricing.isLossMaker ? -15 : belowMinFlight ? -5 : 0;
 
     const destName = flight.destination.charAt(0).toUpperCase() + flight.destination.slice(1);
     const strengths = DEST_STRENGTHS[flight.destination] ?? [];
@@ -152,6 +173,11 @@ export function buildDeals({ flights, stays, interests, travellers, budgetPerPer
       return date.toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
     };
 
+    const adjustedConfidence = Math.max(Math.min(confidence + confidenceAdjustment, 98), 10);
+    const adjustedRationale = pricing.isLossMaker
+      ? rationale + ' · Low margin'
+      : rationale;
+
     currencyKnownByIndex.set(deals.length, currencyKnown);
     deals.push({
       id: `duffel-${flight.destination}-${flight.departureDate}-${flight.airline.replace(/\s+/g, '')}-${index}`,
@@ -163,10 +189,12 @@ export function buildDeals({ flights, stays, interests, travellers, budgetPerPer
       nights: flight.nights,
       pricePerPerson: Math.round(totalPerPerson),
       originalPrice,
-      dealConfidence: confidence,
-      confidenceRationale: rationale,
+      dealConfidence: adjustedConfidence,
+      confidenceRationale: adjustedRationale,
       tags,
       highlights,
+      netMargin: Math.round(pricing.netMargin * 100) / 100,
+      isLossMaker: pricing.isLossMaker,
     });
   }
 
@@ -175,8 +203,13 @@ export function buildDeals({ flights, stays, interests, travellers, budgetPerPer
     ? deals.filter((d, i) => !currencyKnownByIndex.get(i) || d.pricePerPerson <= budgetPerPerson)
     : deals;
 
-  // Sort by deal confidence descending
-  filtered.sort((a, b) => b.dealConfidence - a.dealConfidence);
+  // Sort: viable deals first, then by deal confidence descending
+  filtered.sort((a, b) => {
+    const aLoss = a.isLossMaker ? 1 : 0;
+    const bLoss = b.isLossMaker ? 1 : 0;
+    if (aLoss !== bLoss) return aLoss - bLoss;
+    return b.dealConfidence - a.dealConfidence;
+  });
 
   return filtered;
 }
