@@ -4,7 +4,7 @@ import type { StayResult } from './duffel-client';
 // Amadeus Hotel Search — OAuth 2.0 + Hotel List + Hotel Offers
 // ---------------------------------------------------------------------------
 
-const BASE_URL = 'https://api.amadeus.com';
+const BASE_URL = process.env.AMADEUS_BASE_URL || 'https://test.api.amadeus.com';
 
 let cachedToken: string | null = null;
 let tokenExpiry = 0;
