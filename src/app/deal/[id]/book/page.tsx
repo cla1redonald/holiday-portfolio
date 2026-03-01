@@ -1,11 +1,26 @@
 'use client';
 
 import { useSelectedDeal } from '@/lib/deal-store';
-import BookingForm from '@/components/booking/BookingForm';
+import ContactSection from '@/components/booking/ContactSection';
 import Link from 'next/link';
+import { useEffect } from 'react';
 
 export default function BookPage() {
   const deal = useSelectedDeal();
+
+  useEffect(() => {
+    if (deal) {
+      fetch('/api/track', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          event: 'booking_intent',
+          dealId: deal.id,
+          destination: deal.destination,
+        }),
+      }).catch(() => {});
+    }
+  }, [deal]);
 
   if (!deal) {
     return (
@@ -29,7 +44,7 @@ export default function BookPage() {
 
   return (
     <div className="min-h-screen bg-background">
-      <div className="max-w-2xl mx-auto px-4 py-8 space-y-6">
+      <div className="max-w-lg mx-auto px-4 py-8 space-y-6">
         {/* Back link */}
         <Link
           href={`/deal/${deal.id}`}
@@ -41,29 +56,7 @@ export default function BookPage() {
           Back to deal
         </Link>
 
-        {/* Deal summary card */}
-        <div className="bg-surface rounded-2xl border border-border/60 p-5">
-          <div className="flex items-start gap-4">
-            {deal.image && (
-              <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0">
-                <img src={deal.image} alt={deal.destination} className="w-full h-full object-cover" />
-              </div>
-            )}
-            <div className="flex-1 min-w-0">
-              <h1 className="font-display text-lg font-bold text-foreground">{deal.destination}</h1>
-              <p className="text-sm text-secondary">{deal.dates} &middot; {deal.nights} nights</p>
-              {deal.hotel && (
-                <p className="text-sm text-secondary mt-0.5">{deal.hotel}</p>
-              )}
-              <p className="font-display font-bold text-accent mt-1">
-                £{Math.round(deal.pricePerPerson)}<span className="text-xs font-normal text-secondary"> /person</span>
-              </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Booking form */}
-        <BookingForm deal={deal} travellers={2} />
+        <ContactSection deal={deal} travellers={2} />
       </div>
     </div>
   );

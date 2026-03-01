@@ -1,22 +1,16 @@
 'use client';
 
-import type { Deal, PassengerDetails } from '@/types';
+import type { Deal } from '@/types';
 
 const CONTACT_EMAIL = 'hello@roami.world';
 const WHATSAPP_NUMBER = '447730569793';
 
 interface ContactSectionProps {
   deal: Deal;
-  passengers: PassengerDetails[];
   travellers: number;
-  onBack: () => void;
 }
 
-function buildBookingSummary(deal: Deal, passengers: PassengerDetails[], travellers: number): string {
-  const passengerNames = passengers
-    .map((p, i) => `${i + 1}. ${p.title.toUpperCase()} ${p.givenName} ${p.familyName}`)
-    .join('\n');
-
+function buildDealSummary(deal: Deal, travellers: number): string {
   const totalPrice = Math.round(deal.pricePerPerson * travellers);
 
   return [
@@ -26,18 +20,12 @@ function buildBookingSummary(deal: Deal, passengers: PassengerDetails[], travell
     deal.flight?.airline ? `Airline: ${deal.flight.airline}` : null,
     `Travellers: ${travellers}`,
     `Price: £${Math.round(deal.pricePerPerson)}/person (£${totalPrice} total)`,
-    '',
-    'Passengers:',
-    passengerNames,
-    '',
-    `Contact email: ${passengers[0].email}`,
-    passengers[0].phoneNumber ? `Phone: ${passengers[0].phoneNumber}` : null,
   ].filter(Boolean).join('\n');
 }
 
-export default function ContactSection({ deal, passengers, travellers, onBack }: ContactSectionProps) {
+export default function ContactSection({ deal, travellers }: ContactSectionProps) {
   const totalPrice = Math.round(deal.pricePerPerson * travellers);
-  const summary = buildBookingSummary(deal, passengers, travellers);
+  const summary = buildDealSummary(deal, travellers);
 
   const emailSubject = encodeURIComponent(`Booking request: ${deal.destination} – ${deal.dates}`);
   const emailBody = encodeURIComponent(`Hi Roami,\n\nI'd like to book this deal:\n\n${summary}\n\nPlease confirm availability and next steps.\n\nThanks!`);
@@ -47,47 +35,41 @@ export default function ContactSection({ deal, passengers, travellers, onBack }:
   const whatsappHref = `https://wa.me/${WHATSAPP_NUMBER}?text=${whatsappText}`;
 
   return (
-    <div className="space-y-6">
-      <h2 className="font-display text-lg font-bold text-foreground">Complete your booking</h2>
+    <div className="bg-surface rounded-2xl border border-border/60 p-6 space-y-6">
+      <h2 className="font-display text-xl font-bold text-foreground text-center">Book this deal</h2>
 
-      {/* Booking summary */}
-      <div className="bg-muted rounded-xl p-4 space-y-3">
-        <h3 className="text-sm font-semibold text-foreground">Booking summary</h3>
-        <div className="space-y-1.5 text-sm">
-          <div className="flex justify-between">
-            <span className="text-secondary">Destination</span>
-            <span className="font-medium text-foreground">{deal.destination}</span>
+      {/* Deal summary */}
+      <div className="flex items-start gap-4">
+        {deal.image && (
+          <div className="w-20 h-20 rounded-xl overflow-hidden flex-shrink-0">
+            <img src={deal.image} alt={deal.destination} className="w-full h-full object-cover" />
           </div>
-          <div className="flex justify-between">
-            <span className="text-secondary">Dates</span>
-            <span className="font-medium text-foreground">{deal.dates} ({deal.nights} nights)</span>
-          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <h3 className="font-display font-bold text-foreground">{deal.destination}</h3>
+          <p className="text-sm text-secondary">{deal.dates} &middot; {deal.nights} nights</p>
           {deal.hotel && (
-            <div className="flex justify-between">
-              <span className="text-secondary">Hotel</span>
-              <span className="font-medium text-foreground">{deal.hotel}</span>
-            </div>
+            <p className="text-sm text-secondary">{deal.hotel}</p>
           )}
           {deal.flight?.airline && (
-            <div className="flex justify-between">
-              <span className="text-secondary">Airline</span>
-              <span className="font-medium text-foreground">{deal.flight.airline}</span>
-            </div>
+            <p className="text-sm text-secondary">{deal.flight.airline}</p>
           )}
-          <div className="flex justify-between">
-            <span className="text-secondary">Travellers</span>
-            <span className="font-medium text-foreground">{travellers}</span>
-          </div>
-          {passengers.map((p, i) => (
-            <div key={i} className="flex justify-between">
-              <span className="text-secondary">Passenger {i + 1}</span>
-              <span className="font-medium text-foreground">{p.title.toUpperCase()} {p.givenName} {p.familyName}</span>
-            </div>
-          ))}
         </div>
-        <div className="border-t border-border/60 pt-2 flex justify-between">
-          <span className="font-semibold text-foreground">Total</span>
-          <span className="font-display font-bold text-accent text-lg">£{totalPrice}</span>
+      </div>
+
+      {/* Price */}
+      <div className="bg-muted rounded-xl p-4">
+        <div className="flex justify-between items-baseline">
+          <div>
+            <span className="text-sm text-secondary">{travellers} traveller{travellers > 1 ? 's' : ''}</span>
+          </div>
+          <div className="text-right">
+            <span className="font-display text-2xl font-bold text-accent">£{totalPrice}</span>
+            <span className="text-sm text-secondary ml-1">total</span>
+          </div>
+        </div>
+        <div className="text-right">
+          <span className="text-xs text-secondary">£{Math.round(deal.pricePerPerson)}/person</span>
         </div>
       </div>
 
@@ -122,13 +104,10 @@ export default function ContactSection({ deal, passengers, travellers, onBack }:
         </a>
       </div>
 
-      {/* Edit passengers link */}
-      <button
-        onClick={onBack}
-        className="w-full text-center text-sm text-secondary hover:text-foreground transition-colors cursor-pointer"
-      >
-        Edit passenger details
-      </button>
+      {/* Trust signal */}
+      <p className="text-xs text-secondary/60 text-center">
+        No payment required now. We&apos;ll confirm availability and walk you through the next steps.
+      </p>
     </div>
   );
 }
