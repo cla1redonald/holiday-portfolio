@@ -1,12 +1,12 @@
 'use client';
 
 const SUGGESTED_QUERIES = [
-  'Somewhere warm under £300',
-  'Long weekend in May, good food',
-  'Romantic city break',
-  'Culture trip under £400',
-  'Beach holiday, budget',
-  'Luxury weekend away',
+  { text: 'Somewhere warm under £300', icon: '☀️' },
+  { text: 'Long weekend, great food', icon: '🍽️' },
+  { text: 'Romantic city break', icon: '❤️' },
+  { text: 'Culture trip under £400', icon: '🏛️' },
+  { text: 'Beach and budget', icon: '🏖️' },
+  { text: 'Luxury weekend away', icon: '✨' },
 ];
 
 interface SuggestedQueriesProps {
@@ -15,24 +15,19 @@ interface SuggestedQueriesProps {
 
 export default function SuggestedQueries({ onSelect }: SuggestedQueriesProps) {
   return (
-    <div className="flex flex-wrap gap-2 mt-4">
-      <span className="text-sm text-secondary self-center mr-1">Try:</span>
-      {SUGGESTED_QUERIES.map((query, i) => {
-        // Alternate between coral and teal hover states
-        const isEven = i % 2 === 0;
-        const hoverClass = isEven
-          ? 'hover:border-accent hover:text-accent focus-visible:border-accent focus-visible:text-accent'
-          : 'hover:border-teal hover:text-teal focus-visible:border-teal focus-visible:text-teal';
-        return (
-          <button
-            key={query}
-            onClick={() => onSelect(query)}
-            className={`text-sm px-3 py-1.5 rounded-full border border-border bg-surface focus-visible:outline-none text-secondary transition-all duration-150 cursor-pointer whitespace-nowrap ${hoverClass}`}
-          >
-            {query}
-          </button>
-        );
-      })}
+    <div className="flex flex-wrap items-center gap-2 mt-5 justify-center">
+      <span className="text-xs text-secondary/50 uppercase tracking-wider font-medium mr-1">Try</span>
+      {SUGGESTED_QUERIES.map((query, i) => (
+        <button
+          key={query.text}
+          onClick={() => onSelect(query.text)}
+          className="text-sm px-3.5 py-1.5 rounded-full bg-surface border border-border/60 text-secondary hover:border-accent/40 hover:text-foreground hover:bg-accent/[0.04] transition-all duration-200 cursor-pointer whitespace-nowrap card-shadow animate-fade-in"
+          style={{ animationDelay: `${300 + i * 50}ms` }}
+        >
+          <span className="mr-1.5">{query.icon}</span>
+          {query.text}
+        </button>
+      ))}
     </div>
   );
 }

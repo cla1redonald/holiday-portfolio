@@ -6,8 +6,10 @@
   --foreground: #1A1A2E;
   --accent: #E07A5F;
   --accent-hover: #C9674E;
+  --accent-soft: #E07A5F1A;
   --teal: #4ECDC4;
   --teal-hover: #3DB8B0;
+  --teal-soft: #4ECDC41A;
   --yellow: #FFE66D;
   --yellow-hover: #F5D84E;
   --secondary: #6B7280;
@@ -16,9 +18,9 @@
   --muted: #F3F1EE;
 
   /* Font variables */
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-jakarta);
   --font-mono: var(--font-jetbrains-mono);
-  --font-display: var(--font-dm-sans);
+  --font-display: var(--font-lexend);
 }
 
 @theme inline {
@@ -26,17 +28,19 @@
   --color-foreground: var(--foreground);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
   --color-teal: var(--teal);
   --color-teal-hover: var(--teal-hover);
+  --color-teal-soft: var(--teal-soft);
   --color-yellow: var(--yellow);
   --color-yellow-hover: var(--yellow-hover);
   --color-secondary: var(--secondary);
   --color-surface: var(--surface);
   --color-border: var(--border);
   --color-muted: var(--muted);
-  --font-sans: var(--font-inter);
+  --font-sans: var(--font-jakarta);
   --font-mono: var(--font-jetbrains-mono);
-  --font-display: var(--font-dm-sans);
+  --font-display: var(--font-lexend);
 }
 
 html {
@@ -48,34 +52,73 @@ html {
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: var(--font-inter), system-ui, sans-serif;
+  font-family: var(--font-jakarta), system-ui, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
 
+/* Animations */
 @keyframes fade-in {
-  from {
-    opacity: 0;
-    transform: translateY(12px);
-  }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(24px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(-16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+@keyframes pulse-soft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.6; }
+}
+
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
 }
 
 .animate-fade-in {
-  animation: fade-in 0.4s ease-out;
+  animation: fade-in 0.4s ease-out both;
 }
 
+.animate-fade-in-up {
+  animation: fade-in-up 0.5s ease-out both;
+}
+
+.animate-slide-in {
+  animation: slide-in-right 0.4s ease-out both;
+}
+
+.animate-pulse-soft {
+  animation: pulse-soft 2s ease-in-out infinite;
+}
+
+.animate-shimmer {
+  background: linear-gradient(90deg, var(--border) 25%, var(--muted) 50%, var(--border) 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+
+/* Font utilities */
 .font-mono {
   font-family: var(--font-jetbrains-mono), ui-monospace, monospace;
 }
 
 .font-display {
-  font-family: var(--font-dm-sans), system-ui, sans-serif;
+  font-family: var(--font-lexend), system-ui, sans-serif;
 }
 
+.font-body {
+  font-family: var(--font-jakarta), system-ui, sans-serif;
+}
+
+/* Text utilities */
 .text-gradient {
   background: linear-gradient(135deg, var(--accent), var(--teal));
   -webkit-background-clip: text;
@@ -83,12 +126,30 @@ body {
   background-clip: text;
 }
 
+/* Shadow system */
 .card-shadow {
-  box-shadow: 0 1px 3px rgba(26, 26, 46, 0.04), 0 8px 24px rgba(26, 26, 46, 0.06);
+  box-shadow:
+    0 1px 2px rgba(26, 26, 46, 0.03),
+    0 4px 16px rgba(26, 26, 46, 0.05);
 }
 
 .card-shadow-hover {
-  box-shadow: 0 4px 12px rgba(26, 26, 46, 0.06), 0 16px 40px rgba(26, 26, 46, 0.1);
+  box-shadow:
+    0 4px 12px rgba(26, 26, 46, 0.06),
+    0 20px 48px rgba(26, 26, 46, 0.1);
+}
+
+.search-shadow {
+  box-shadow:
+    0 2px 8px rgba(26, 26, 46, 0.04),
+    0 12px 32px rgba(26, 26, 46, 0.08);
+}
+
+.search-shadow-focus {
+  box-shadow:
+    0 2px 8px rgba(26, 26, 46, 0.04),
+    0 12px 32px rgba(26, 26, 46, 0.08),
+    0 0 0 3px var(--accent-soft);
 }
 
 /* Scroll reveal animations */
@@ -116,7 +177,17 @@ body {
 
 .reveal-stagger.visible > *:nth-child(1) { transition-delay: 0ms; }
 .reveal-stagger.visible > *:nth-child(2) { transition-delay: 80ms; }
-.reveal-stagger.visible > *:nth-child(3) { transition-delay: 160ms; }
-.reveal-stagger.visible > *:nth-child(4) { transition-delay: 240ms; }
-.reveal-stagger.visible > *:nth-child(5) { transition-delay: 320ms; }
-.reveal-stagger.visible > *:nth-child(6) { transition-delay: 400ms; }
+.reveal-stagger.visible > *:nth-child(3) { transition-delay: 100ms; }
+.reveal-stagger.visible > *:nth-child(4) { transition-delay: 160ms; }
+.reveal-stagger.visible > *:nth-child(5) { transition-delay: 200ms; }
+.reveal-stagger.visible > *:nth-child(6) { transition-delay: 240ms; }
+
+/* Noise texture overlay */
+.noise-overlay::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  pointer-events: none;
+}

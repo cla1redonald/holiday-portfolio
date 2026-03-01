@@ -49,12 +49,12 @@ export default function WaitlistForm({ lastQuery = '' }: WaitlistFormProps) {
 
   if (status === 'success') {
     return (
-      <section id="waitlist" className="py-20 bg-accent">
+      <section id="waitlist" className="py-20 bg-foreground">
         <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center">
-          <div className="text-5xl mb-6">&#10003;</div>
-          <h2 className="font-display text-3xl font-bold text-white mb-3">Welcome aboard!</h2>
-          <p className="text-white/80 text-lg">
-            You&apos;re on the list. We&apos;ll be in touch when it&apos;s time to set off — keep an eye on your inbox.
+          <div className="text-4xl mb-5">&#10003;</div>
+          <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mb-3">Welcome aboard</h2>
+          <p className="text-white/60 text-base">
+            We&apos;ll be in touch when it&apos;s time to set off.
           </p>
         </div>
       </section>
@@ -62,18 +62,22 @@ export default function WaitlistForm({ lastQuery = '' }: WaitlistFormProps) {
   }
 
   return (
-    <section id="waitlist" className="py-20 bg-accent">
-      <div className="max-w-2xl mx-auto px-4 sm:px-6 text-center">
-        {/* Header */}
-        <h2 className="font-display text-3xl sm:text-4xl font-bold text-white mb-3">
+    <section id="waitlist" className="py-16 sm:py-20 bg-foreground relative overflow-hidden">
+      {/* Decorative */}
+      <div className="absolute inset-0 pointer-events-none" aria-hidden="true">
+        <div className="absolute top-0 right-[20%] w-64 h-64 rounded-full bg-accent/10 blur-3xl" />
+        <div className="absolute bottom-0 left-[10%] w-80 h-80 rounded-full bg-teal/10 blur-3xl" />
+      </div>
+
+      <div className="relative max-w-lg mx-auto px-4 sm:px-6 text-center">
+        <h2 className="font-display text-2xl sm:text-3xl font-bold text-white mb-3">
           Ready to roam?
         </h2>
-        <p className="text-white/80 text-lg mb-10">
-          Join the waitlist for early access and founder pricing. Your next adventure starts here.
+        <p className="text-white/50 text-base mb-8">
+          Join the waitlist for early access and founder pricing.
         </p>
 
-        {/* Form */}
-        <form onSubmit={handleSubmit} className="flex flex-col sm:flex-row gap-3 max-w-md mx-auto">
+        <form onSubmit={handleSubmit} className="flex gap-2">
           <input
             type="email"
             value={email}
@@ -82,34 +86,32 @@ export default function WaitlistForm({ lastQuery = '' }: WaitlistFormProps) {
             name="email"
             autoComplete="email"
             required
-            className="flex-1 bg-white/95 text-foreground placeholder-secondary rounded-xl px-4 py-3 text-base outline-none focus:ring-2 focus:ring-white/50 transition-all"
+            className="flex-1 bg-white/10 border border-white/10 text-white placeholder-white/30 rounded-xl px-4 py-3 text-base outline-none focus:border-white/30 focus:bg-white/15 transition-all font-display"
             aria-label="Email address"
           />
           <button
             type="submit"
             disabled={status === 'loading'}
-            className="bg-foreground text-white font-semibold px-6 py-3 rounded-xl hover:bg-foreground/90 disabled:opacity-60 transition-all duration-200 cursor-pointer whitespace-nowrap"
+            className="bg-accent hover:bg-accent-hover text-white font-display font-semibold px-6 py-3 rounded-xl disabled:opacity-60 transition-all duration-200 cursor-pointer whitespace-nowrap text-sm"
           >
-            {status === 'loading' ? 'Joining...' : 'Join Waitlist'}
+            {status === 'loading' ? 'Joining...' : 'Join'}
           </button>
         </form>
 
-        {/* Error */}
         {status === 'error' && (
           <div role="alert" className="mt-4 flex items-center justify-center gap-3">
-            <p className="text-white/90 text-sm">{errorMessage}</p>
+            <p className="text-white/70 text-sm">{errorMessage}</p>
             <button
               onClick={handleRetry}
-              className="text-white underline text-sm cursor-pointer focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-accent rounded"
+              className="text-white/50 hover:text-white underline text-sm cursor-pointer transition-colors"
             >
               Try again
             </button>
           </div>
         )}
 
-        {/* GDPR note */}
-        <p className="mt-5 text-white/60 text-xs">
-          We&apos;ll only email you about Roami. Unsubscribe anytime. No spam, ever.
+        <p className="mt-4 text-white/25 text-xs">
+          No spam, ever. Unsubscribe anytime.
         </p>
       </div>
     </section>
