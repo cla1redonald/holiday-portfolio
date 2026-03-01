@@ -108,6 +108,8 @@ export interface SessionProfile {
   breakdownClicks?: number;                // times user expanded a cost breakdown
   proInterestClicked?: boolean;            // clicked "Notify me" on Pro teaser
   proInterestEmail?: string;               // email if provided via Pro teaser
+  bookingIntents?: number;                 // times user clicked "Book This Deal"
+  bookingIntentDealIds?: string[];         // dealIds they attempted to book
 }
 
 export interface PassengerDetails {

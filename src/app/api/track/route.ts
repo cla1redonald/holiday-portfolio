@@ -53,6 +53,14 @@ export async function POST(request: NextRequest) {
       if (body.email && typeof body.email === 'string') {
         session.proInterestEmail = body.email.slice(0, 200);
       }
+    } else if (event === 'booking_intent') {
+      session.bookingIntents = (session.bookingIntents ?? 0) + 1;
+      if (body.dealId && typeof body.dealId === 'string') {
+        const ids = session.bookingIntentDealIds ?? [];
+        if (!ids.includes(body.dealId)) {
+          session.bookingIntentDealIds = [...ids, body.dealId].slice(-20);
+        }
+      }
     }
 
     await saveServerSession(sessionId, session);
