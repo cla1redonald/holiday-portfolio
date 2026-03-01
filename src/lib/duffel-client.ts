@@ -1,18 +1,16 @@
 import { Duffel } from '@duffel/api';
 import { lookupCity } from './iata-codes';
 
-// Singleton pattern: reuses the client across warm serverless invocations
-let duffelClient: Duffel | null = null;
-let duffelToken: string | null = null;
-
+// Creates a Duffel client using the API token from environment
 function getDuffel(): Duffel {
   const token = process.env.DUFFEL_API_TOKEN;
   if (!token) throw new Error('DUFFEL_API_TOKEN not configured');
-  if (!duffelClient || token !== duffelToken) {
-    duffelClient = new Duffel({ token });
-    duffelToken = token;
+  try {
+    return new Duffel({ token });
+  } catch {
+    // Fallback for environments where Duffel is provided as a factory function
+    return (Duffel as unknown as (opts: { token: string }) => Duffel)({ token });
   }
-  return duffelClient;
 }
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
@@ -23,20 +21,6 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   ]);
 }
 
-function withAbortableTimeout<T>(
-  fn: (signal: AbortSignal) => Promise<T>,
-  ms: number
-): Promise<T | null> {
-  const controller = new AbortController();
-  const timeout = setTimeout(() => controller.abort(), ms);
-  return fn(controller.signal)
-    .then((result) => { clearTimeout(timeout); return result; })
-    .catch((err) => {
-      clearTimeout(timeout);
-      if (err instanceof DOMException && err.name === 'AbortError') return null;
-      throw err;
-    });
-}
 
 export interface FlightResult {
   destination: string;
@@ -157,7 +141,6 @@ export async function searchFlights(params: {
 }
 
 // Stays API — requires separate access from Duffel (contact sales)
-// Using direct fetch since the SDK may not handle Stays errors well
 export async function searchStays(params: {
   destinations: string[];
   checkIn: string;
@@ -165,30 +148,30 @@ export async function searchStays(params: {
   guests: number;
   rooms?: number;
 }): Promise<StayResult[]> {
-  const token = process.env.DUFFEL_API_TOKEN;
-  if (!token) return [];
-
+  const duffel = getDuffel();
   const results: StayResult[] = [];
   const rooms = params.rooms ?? 1;
-  const guestsList = Array.from({ length: params.guests }, () => ({
+  const guests = Array.from({ length: params.guests }, () => ({
     type: 'adult' as const,
   }));
 
-  const searches = params.destinations.slice(0, 3).map((dest) => withAbortableTimeout((signal) => (async () => {
-    const cityInfo = lookupCity(dest);
-    if (!cityInfo) return [];
+  const nights = Math.ceil(
+    (new Date(params.checkOut).getTime() - new Date(params.checkIn).getTime()) /
+      (1000 * 60 * 60 * 24)
+  );
 
-    try {
-      const res = await fetch('https://api.duffel.com/stays/search', {
-        method: 'POST',
-        headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json',
-          'Duffel-Version': 'v2',
-          'Authorization': `Bearer ${token}`,
-        },
-        body: JSON.stringify({
-          data: {
+  const searches = params.destinations.slice(0, 3).map((dest) =>
+    withTimeout(
+      (async () => {
+        const cityInfo = lookupCity(dest);
+        if (!cityInfo) return [];
+
+        try {
+          const response = await duffel.stays.search({
+            check_in_date: params.checkIn,
+            check_out_date: params.checkOut,
+            rooms,
+            guests,
             location: {
               radius: 10,
               geographic_coordinates: {
@@ -196,65 +179,64 @@ export async function searchStays(params: {
                 longitude: cityInfo.longitude,
               },
             },
-            check_in_date: params.checkIn,
-            check_out_date: params.checkOut,
-            rooms,
-            guests: guestsList,
-          },
-        }),
-        signal,
-      });
+          });
 
-      if (!res.ok) {
-        const text = await res.text();
-        console.error(`Stays search ${dest}: ${res.status} - ${text.slice(0, 200)}`);
-        return [];
-      }
+          const stayResults = response.data.results ?? [];
+          console.log(`Stays in ${dest}: ${stayResults.length} results`);
 
-      interface StaysAccommodation {
-        name: string;
-        rating: number | null;
-        review_score: number | null;
-        photos?: Array<{ url: string }>;
-      }
-      interface StaysResult {
-        cheapest_rate_total_amount: string;
-        cheapest_rate_currency: string;
-        accommodation: StaysAccommodation;
-      }
-
-      const data = await res.json() as { data: { results?: StaysResult[] } };
-      const stayResults = data.data.results ?? [];
-      console.log(`Stays in ${dest}: ${stayResults.length} results`);
-
-      return stayResults
-        .sort((a, b) => parseFloat(a.cheapest_rate_total_amount) - parseFloat(b.cheapest_rate_total_amount))
-        .slice(0, 3)
-        .map((result) => {
-          const nights = Math.ceil(
-            (new Date(params.checkOut).getTime() - new Date(params.checkIn).getTime()) / (1000 * 60 * 60 * 24)
-          );
-          const totalPrice = parseFloat(result.cheapest_rate_total_amount);
-          return {
-            destination: dest,
-            hotelName: result.accommodation.name,
-            rating: result.accommodation.rating,
-            reviewScore: result.accommodation.review_score,
-            totalPrice,
-            pricePerNight: totalPrice / Math.max(nights, 1),
-            currency: result.cheapest_rate_currency,
-            checkIn: params.checkIn,
-            checkOut: params.checkOut,
-            photoUrl: result.accommodation.photos?.[0]?.url ?? null,
-            boardType: 'room_only',
+          return stayResults
+            .sort(
+              (a: { cheapest_rate_total_amount: string }, b: { cheapest_rate_total_amount: string }) =>
+                parseFloat(a.cheapest_rate_total_amount) -
+                parseFloat(b.cheapest_rate_total_amount)
+            )
+            .slice(0, 3)
+            .map((result: {
+              cheapest_rate_total_amount: string;
+              cheapest_rate_currency: string;
+              accommodation: {
+                name: string;
+                rating: number | null;
+                review_score: number | null;
+                photos?: Array<{ url: string }>;
+              };
+            }) => {
+              const totalPrice = parseFloat(result.cheapest_rate_total_amount);
+              return {
+                destination: dest,
+                hotelName: result.accommodation.name,
+                rating: result.accommodation.rating,
+                reviewScore: result.accommodation.review_score,
+                totalPrice,
+                pricePerNight: totalPrice / Math.max(nights, 1),
+                currency: result.cheapest_rate_currency,
+                checkIn: params.checkIn,
+                checkOut: params.checkOut,
+                photoUrl: result.accommodation.photos?.[0]?.url ?? null,
+                boardType: 'room_only',
+              };
+            });
+        } catch (err: unknown) {
+          const duffelErr = err as {
+            errors?: Array<{ message: string; title: string; code?: string }>;
+            meta?: { status?: number };
           };
-        });
-    } catch (err) {
-      if (err instanceof DOMException && err.name === 'AbortError') return [];
-      console.error(`Stays search failed for ${dest}:`, err);
-      return [];
-    }
-  })(), 8000));
+          if (duffelErr.errors) {
+            console.error(
+              `Stays search failed for ${dest}:`,
+              duffelErr.errors
+                .map((e) => `${e.title}: ${e.message}`)
+                .join(', ')
+            );
+          } else {
+            console.error(`Stays search failed for ${dest}:`, err);
+          }
+          return [];
+        }
+      })(),
+      8000
+    )
+  );
 
   const settled = await Promise.allSettled(searches);
   for (const result of settled) {
