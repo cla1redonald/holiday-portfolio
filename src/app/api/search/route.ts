@@ -49,6 +49,10 @@ function sanitizeSessionProfile(raw: unknown): SessionProfile | null {
     breakdownClicks: typeof obj.breakdownClicks === 'number' ? Math.min(Math.max(0, obj.breakdownClicks), 10000) : undefined,
     proInterestClicked: typeof obj.proInterestClicked === 'boolean' ? obj.proInterestClicked : undefined,
     proInterestEmail: typeof obj.proInterestEmail === 'string' ? obj.proInterestEmail.slice(0, 200) : undefined,
+    bookingIntents: typeof obj.bookingIntents === 'number' ? Math.min(Math.max(0, obj.bookingIntents), 10000) : undefined,
+    bookingIntentDealIds: Array.isArray(obj.bookingIntentDealIds)
+      ? obj.bookingIntentDealIds.slice(0, 20).filter((v): v is string => typeof v === 'string' && v.length <= 100)
+      : undefined,
   };
 }
 

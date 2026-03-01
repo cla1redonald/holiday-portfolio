@@ -55,10 +55,11 @@ export async function POST(request: NextRequest) {
       }
     } else if (event === 'booking_intent') {
       session.bookingIntents = (session.bookingIntents ?? 0) + 1;
-      if (body.dealId && typeof body.dealId === 'string') {
+      if (body.dealId && typeof body.dealId === 'string' && body.dealId.length <= 100) {
+        const dealId = body.dealId.slice(0, 100);
         const ids = session.bookingIntentDealIds ?? [];
-        if (!ids.includes(body.dealId)) {
-          session.bookingIntentDealIds = [...ids, body.dealId].slice(-20);
+        if (!ids.includes(dealId)) {
+          session.bookingIntentDealIds = [...ids, dealId].slice(-20);
         }
       }
     }

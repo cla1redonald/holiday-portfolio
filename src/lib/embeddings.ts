@@ -33,7 +33,11 @@ export async function embedText(text: string): Promise<number[] | null> {
   if (redis) {
     try {
       const redisCached = await redis.get<number[]>(embeddingCacheKey(text));
-      if (redisCached) {
+      if (
+        Array.isArray(redisCached) &&
+        redisCached.length === 1536 &&
+        redisCached.every(v => typeof v === 'number')
+      ) {
         requestCache.set(text, redisCached);
         return redisCached;
       }
