@@ -74,9 +74,12 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
       setSource(result.source ?? 'mock');
 
       // Update session profile with search data
+      // Use canonical tags from deal tags (not display labels) for interest matching
+      const allTags = result.deals.flatMap((d) => d.tags);
+      const uniqueTags = [...new Set(allTags)];
       const intent = {
-        destinations: result.deals.map((d) => d.destination),
-        interests: result.preferences.map((p) => p.label),
+        destinations: result.deals.map((d) => d.destination.toLowerCase()),
+        interests: uniqueTags,
         budgetPerPerson: result.deals.length > 0 ? result.deals[0].pricePerPerson : null,
         travellers: 1,
       };
