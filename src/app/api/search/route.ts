@@ -159,8 +159,9 @@ export async function POST(request: NextRequest) {
       return setCorsHeaders(NextResponse.json(result), origin);
     }
 
+    // Strip internal margin fields before sending to client
     const result: SearchResult = {
-      deals: deals.slice(0, 6),
+      deals: deals.slice(0, 6).map(({ netMargin, isLossMaker, ...deal }) => deal),
       preferences: intent.preferences,
       query,
       source: 'duffel',

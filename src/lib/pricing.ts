@@ -115,10 +115,12 @@ export interface DealCosts {
   netMargin: number;
   /** True if this deal loses us money */
   isLossMaker: boolean;
-  /** The customer-facing price per person (after markup) */
+  /** The customer-facing price per person (after markup, rounded) */
   customerPricePerPerson: number;
-  /** The original cost price per person (before markup) */
+  /** The original cost price per person (before markup, rounded) */
   costPricePerPerson: number;
+  /** Total amount the customer actually pays (rounded per-person × travellers) */
+  totalCustomerPays: number;
 }
 
 
@@ -148,10 +150,18 @@ export function calculateDealPricing(params: {
 
   // Our markup: percentage of total order value (flights + hotel)
   const orderTotal = flightTotalGBP + hotelTotalGBP;
-  const markupAmount = orderTotal * cfg.markup.orderPercentage;
-  const totalCustomerPays = orderTotal + markupAmount;
 
-  // Duffel Payments: 1.4% of the amount the customer pays (including our markup)
+  // --- Per-person prices (rounded first — single source of truth) ---
+  const costPricePerPerson = Math.round(orderTotal / Math.max(travellers, 1));
+  const customerPricePerPerson = Math.round(
+    (orderTotal * (1 + cfg.markup.orderPercentage)) / Math.max(travellers, 1),
+  );
+
+  // Total the customer actually pays, derived from rounded per-person price.
+  // This is the single source of truth for payment intent and margin calculation.
+  const totalCustomerPays = customerPricePerPerson * Math.max(travellers, 1);
+
+  // Duffel Payments: 1.4% of the amount actually charged
   const paymentProcessingCost = totalCustomerPays * cfg.payments.percentageFee;
 
   // ATOL: per passenger, only for packages
@@ -159,16 +169,12 @@ export function calculateDealPricing(params: {
 
   const totalCostToUs = flightCostToUs + paymentProcessingCost + atolCost;
 
-  // --- Revenue to us ---
-  const markupRevenue = markupAmount;
+  // --- Revenue to us (based on actual amount charged) ---
+  const markupRevenue = totalCustomerPays - orderTotal;
 
   // --- Net ---
   const netMargin = markupRevenue - totalCostToUs;
   const isLossMaker = netMargin < 0;
-
-  // --- Per-person prices ---
-  const costPricePerPerson = orderTotal / Math.max(travellers, 1);
-  const customerPricePerPerson = totalCustomerPays / Math.max(travellers, 1);
 
   return {
     flightCostToUs,
@@ -178,8 +184,9 @@ export function calculateDealPricing(params: {
     markupRevenue,
     netMargin,
     isLossMaker,
-    customerPricePerPerson: Math.round(customerPricePerPerson),
-    costPricePerPerson: Math.round(costPricePerPerson),
+    customerPricePerPerson,
+    costPricePerPerson,
+    totalCustomerPays,
   };
 }
 

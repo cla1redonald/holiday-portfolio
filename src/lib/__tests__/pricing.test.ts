@@ -26,8 +26,9 @@ describe('calculateDealPricing', () => {
     // Total cost must be positive
     expect(result.totalCostToUs).toBeGreaterThan(0);
 
-    // Markup revenue: 5% of total order (£300 flight + £200 hotel = £500)
-    expect(result.markupRevenue).toBeCloseTo(500 * 0.05, 2); // £25.00
+    // Markup revenue: derived from rounded per-person price × travellers - base
+    // round(525/2) = 263, 263 × 2 = 526, 526 - 500 = £26
+    expect(result.markupRevenue).toBe(26);
 
     // Net margin should be positive for this reasonable deal
     expect(result.netMargin).toBeGreaterThan(0);
@@ -101,10 +102,9 @@ describe('calculateDealPricing', () => {
       isPackage: true,
     });
 
-    // Markup on total order: (1000 + 500) × 5% = £75
-    // Total customer pays: 1000 + 500 + 75 = £1575
-    // Payment fee: 1575 × 1.4% = £22.05
-    expect(result.paymentProcessingCost).toBeCloseTo(1575 * 0.014, 1);
+    // Rounded per-person: round(1575/2) = 788, actual total: 788 × 2 = 1576
+    // Payment fee: 1576 × 1.4% = £22.064
+    expect(result.paymentProcessingCost).toBeCloseTo(1576 * 0.014, 1);
   });
 });
 
