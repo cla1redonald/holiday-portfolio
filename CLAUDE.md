@@ -89,6 +89,30 @@ Dev server: `npm run dev` (localhost:3000)
 - Price breakdown is gated behind "See cost breakdown" expand link — tracks `breakdownClicks` for demand validation
 - Booking flow uses Duffel balance payment in test mode — card payments need DuffelCardForm + createThreeDSecureSession in production
 
+## Deployment (Vercel)
+
+**CRITICAL: After every deploy, verify env vars are in sync.** Missing env vars are the #1 cause of "no deals found" in production.
+
+```bash
+# Compare local env vars with Vercel — run this after every deploy
+vercel env ls                          # see what's on Vercel
+grep '^[A-Z]' .env.example            # see what's needed
+```
+
+Required env vars on Vercel (search will fail without these):
+- `ANTHROPIC_API_KEY` — NLP query parsing
+- `DUFFEL_API_TOKEN` — flight search
+- `OPENAI_API_KEY` — semantic embeddings for destination matching
+- `SUPABASE_URL` — destination database
+- `SUPABASE_SERVICE_ROLE_KEY` — destination database auth
+- `NEXT_PUBLIC_SUPABASE_URL` — client-side Supabase URL
+
+Optional (graceful degradation without):
+- `UPSTASH_REDIS_REST_URL` / `UPSTASH_REDIS_REST_TOKEN` — price intelligence cache + rate limiting
+- `AMADEUS_API_KEY` / `AMADEUS_API_SECRET` — hotel search fallback
+
+To add a missing var: `printf '%s\ny\n' "VALUE" | vercel env add VAR_NAME production`
+
 ## Gotchas & Patterns (for future sessions)
 
 - **Amadeus SDK**: The `amadeus` npm package is plain JS with no TypeScript types. Use raw `fetch` instead, with typed response interfaces defined locally.
