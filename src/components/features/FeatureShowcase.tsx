@@ -6,6 +6,7 @@ import { useScrollReveal } from '@/hooks/useScrollReveal';
 const pillars = [
   {
     title: 'Smart Planning',
+    description: 'Flights, stays, packing — sorted before you even zip the suitcase.',
     accent: 'bg-accent/10 border-accent/20',
     features: [
       { icon: '/icons/flight-deals.png', label: 'Flights' },
@@ -16,6 +17,7 @@ const pillars = [
   },
   {
     title: 'Authentic Discovery',
+    description: 'Skip the tourist traps. Find the alleyway with the best sunset.',
     accent: 'bg-teal/10 border-teal/20',
     features: [
       { icon: '/icons/hidden-gems.png', label: 'Hidden gems' },
@@ -26,6 +28,7 @@ const pillars = [
   },
   {
     title: 'Seamless Utility',
+    description: 'Visas, currency, budget — the boring bits, handled effortlessly.',
     accent: 'bg-accent/10 border-accent/20',
     features: [
       { icon: '/icons/passport-check.png', label: 'Visa' },
@@ -36,6 +39,7 @@ const pillars = [
   },
   {
     title: 'Travel Your Way',
+    description: 'Solo wanderer or crew coordinator — Roami adapts to your style.',
     accent: 'bg-teal/10 border-teal/20',
     features: [
       { icon: '/icons/heart-sparkle.png', label: 'Solo' },
@@ -64,20 +68,23 @@ export default function FeatureShowcase() {
         </div>
 
         {/* 4 Pillars Grid */}
-        <div ref={grid.ref} className={`grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6 reveal-stagger ${grid.isVisible ? 'visible' : ''}`}>
+        <div ref={grid.ref} className={`grid grid-cols-1 sm:grid-cols-2 gap-6 reveal-stagger ${grid.isVisible ? 'visible' : ''}`}>
           {pillars.map((pillar) => (
             <div
               key={pillar.title}
-              className={`rounded-3xl p-5 border transition-all duration-200 hover:-translate-y-1 ${pillar.accent}`}
+              className={`rounded-3xl p-6 border transition-all duration-200 hover:-translate-y-1 ${pillar.accent}`}
             >
-              <h3 className="font-display font-semibold text-foreground text-sm mb-4 text-center">
+              <h3 className="font-display font-bold text-foreground text-lg mb-1">
                 {pillar.title}
               </h3>
-              <div className="grid grid-cols-2 gap-3">
+              <p className="text-secondary text-sm mb-5">
+                {pillar.description}
+              </p>
+              <div className="flex gap-4">
                 {pillar.features.map((feature) => (
                   <div
                     key={feature.label}
-                    className="flex flex-col items-center gap-1.5 group"
+                    className="flex flex-col items-center gap-1.5 group flex-1"
                   >
                     <div className="w-12 h-12 rounded-xl bg-surface flex items-center justify-center group-hover:scale-110 transition-transform duration-200 shadow-sm">
                       <Image
