@@ -158,7 +158,7 @@ roami/
 │   │   ├── price-intelligence.ts  # Upstash Redis price tracking
 │   │   ├── session-store.ts       # Server-side session (Supabase)
 │   │   ├── session-preferences.ts # Client-side preference tracking
-│   │   └── __tests__/             # 94 unit tests across 7 files
+│   │   └── __tests__/             # 103 unit tests across 7 files
 │   ├── components/                # React components (deal cards, search bar, preferences panel)
 │   └── types/
 │       └── index.ts               # Shared TypeScript types
