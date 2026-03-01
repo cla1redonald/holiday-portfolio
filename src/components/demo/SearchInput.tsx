@@ -11,10 +11,10 @@ interface SearchInputProps {
 
 export default function SearchInput({ value, onChange, onSearch, loading }: SearchInputProps) {
   const [localValue, setLocalValue] = useState(value);
+  const [focused, setFocused] = useState(false);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Sync external value changes (e.g. from suggested queries)
   useEffect(() => {
     setLocalValue(value);
   }, [value]);
@@ -47,11 +47,15 @@ export default function SearchInput({ value, onChange, onSearch, loading }: Sear
   };
 
   return (
-    <div className="relative flex items-center gap-0 bg-surface border-2 border-border rounded-2xl shadow-md hover:border-accent focus-within:border-accent transition-all duration-200 overflow-hidden">
+    <div
+      className={`relative flex items-center bg-surface rounded-2xl transition-all duration-300 overflow-hidden ${
+        focused ? 'search-shadow-focus' : 'search-shadow'
+      }`}
+    >
       {/* Search icon */}
       <div className="flex-shrink-0 pl-5 pr-3">
         <svg
-          className="w-5 h-5 text-secondary"
+          className={`w-5 h-5 transition-colors duration-200 ${focused ? 'text-accent' : 'text-secondary/50'}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -72,8 +76,10 @@ export default function SearchInput({ value, onChange, onSearch, loading }: Sear
         value={localValue}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
-        placeholder="Type naturally: somewhere warm, good food, under £400..."
-        className="flex-1 py-4 pr-4 text-foreground placeholder-secondary bg-transparent outline-none text-base sm:text-lg"
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        placeholder="Somewhere warm, good food, under £400..."
+        className="flex-1 py-4 sm:py-5 pr-4 text-foreground placeholder-secondary/40 bg-transparent outline-none text-base sm:text-lg font-display font-medium"
         aria-label="Search for holiday deals"
       />
 
@@ -81,7 +87,7 @@ export default function SearchInput({ value, onChange, onSearch, loading }: Sear
       <button
         onClick={handleSubmit}
         disabled={loading || !localValue.trim()}
-        className="flex-shrink-0 bg-accent hover:bg-accent-hover disabled:bg-border text-white font-semibold px-6 py-4 transition-colors duration-200 cursor-pointer disabled:cursor-not-allowed text-sm sm:text-base"
+        className="flex-shrink-0 bg-accent hover:bg-accent-hover disabled:bg-secondary/20 text-white font-display font-semibold px-6 sm:px-8 py-4 sm:py-5 transition-all duration-200 cursor-pointer disabled:cursor-not-allowed text-sm sm:text-base"
         aria-label="Search"
       >
         {loading ? (

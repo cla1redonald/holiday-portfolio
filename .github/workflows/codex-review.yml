@@ -1,0 +1,64 @@
+name: Codex PR Review
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+jobs:
+  codex:
+    runs-on: ubuntu-latest
+    outputs:
+      review: ${{ steps.review.outputs.final-message }}
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.pull_request.head.ref }}
+
+      - name: Fetch base branch
+        run: git fetch origin ${{ github.event.pull_request.base.ref }}
+
+      - name: Review PR with Codex
+        id: review
+        uses: openai/codex-action@v1
+        with:
+          openai-api-key: ${{ secrets.OPENAI_API_KEY }}
+          prompt: |
+            Review PR #${{ github.event.pull_request.number }}: "${{ github.event.pull_request.title }}"
+
+            This is a Next.js + TypeScript + Tailwind CSS project (travel search app).
+
+            Focus on:
+            - TypeScript correctness and type safety
+            - React best practices (hooks, rendering, accessibility)
+            - CSS/Tailwind: unused classes, responsive issues, animation performance
+            - Security: XSS, injection, unsafe patterns
+            - Performance: unnecessary re-renders, missing memoization, large bundles
+
+            Changed files:
+            $(git log --oneline origin/${{ github.event.pull_request.base.ref }}..HEAD)
+
+            Diff:
+            $(git diff origin/${{ github.event.pull_request.base.ref }}...HEAD -- '*.ts' '*.tsx' '*.css' | head -c 30000)
+
+  post_feedback:
+    needs: codex
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/github-script@v7
+        with:
+          script: |
+            const review = `${{ needs.codex.outputs.review }}`;
+            if (review && review.trim()) {
+              await github.rest.issues.createComment({
+                issue_number: context.issue.number,
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                body: `## 🤖 Codex Review\n\n${review}`
+              });
+            }

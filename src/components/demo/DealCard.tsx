@@ -8,92 +8,114 @@ interface DealCardProps {
 }
 
 function ConfidenceBadge({ score }: { score: number }) {
-  // Teal for high confidence, yellow for medium, red for low
   const color =
-    score >= 85 ? 'bg-teal/10 text-teal border-teal/30' :
-    score >= 70 ? 'bg-yellow/20 text-amber-700 border-yellow/50' :
-    'bg-red-50 text-red-700 border-red-200';
-
-  const dot =
-    score >= 85 ? 'bg-teal' :
-    score >= 70 ? 'bg-yellow' :
-    'bg-red-500';
+    score >= 85 ? 'bg-teal/10 text-teal' :
+    score >= 70 ? 'bg-yellow/20 text-amber-700' :
+    'bg-red-50 text-red-700';
 
   return (
-    <span className={`inline-flex items-center gap-1.5 text-xs font-semibold px-2 py-1 rounded-full border ${color}`}>
-      <span className={`w-1.5 h-1.5 rounded-full ${dot}`} />
-      {score}% deal score
+    <span className={`inline-flex items-center gap-1 text-[11px] font-semibold font-mono px-2 py-0.5 rounded-full ${color}`}>
+      {score}%
     </span>
   );
 }
 
 export default function DealCard({ deal }: DealCardProps) {
   const savings = deal.originalPrice - deal.pricePerPerson;
-  const savingsPct = Math.round((savings / deal.originalPrice) * 100);
+  const savingsPct = deal.originalPrice > deal.pricePerPerson
+    ? Math.round((savings / deal.originalPrice) * 100)
+    : 0;
 
   const scrollToWaitlist = () => {
     document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
   };
 
+  // Extract airline from highlights if present
+  const airlineHighlight = deal.highlights.find(h => h.toLowerCase().includes('flights'));
+
   return (
-    <article aria-label={`${deal.destination} deal at ${deal.hotel}`} className="bg-surface rounded-3xl border border-border card-shadow hover:card-shadow-hover transition-all duration-200 overflow-hidden flex flex-col group hover:-translate-y-1">
+    <article
+      aria-label={`${deal.destination} deal at ${deal.hotel}`}
+      className="bg-surface rounded-2xl border border-border/60 card-shadow hover:card-shadow-hover transition-all duration-300 overflow-hidden flex flex-col group hover:-translate-y-1"
+    >
       {/* Image */}
-      <div className="relative h-44 overflow-hidden">
+      <div className="relative h-48 overflow-hidden">
         <Image
           src={deal.image}
           alt={`${deal.destination}, ${deal.country}`}
           fill
-          className="object-cover group-hover:scale-105 transition-transform duration-500"
+          className="object-cover group-hover:scale-105 transition-transform duration-700 ease-out"
           sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
         />
+        {/* Gradient overlay */}
+        <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
+
         {/* Savings badge */}
-        <div className="absolute top-3 left-3 bg-accent text-white text-xs font-bold px-2 py-1 rounded-full">
-          Save {savingsPct}%
+        {savingsPct > 0 && (
+          <div className="absolute top-3 left-3 bg-accent text-white text-xs font-bold font-display px-2.5 py-1 rounded-lg">
+            {savingsPct}% below avg
+          </div>
+        )}
+
+        {/* Destination overlay */}
+        <div className="absolute bottom-3 left-3 right-3">
+          <div className="flex items-end justify-between">
+            <div>
+              <h3 className="font-display font-bold text-white text-xl leading-tight drop-shadow-sm">
+                {deal.destination}
+              </h3>
+              <p className="text-white/80 text-sm">{deal.country}</p>
+            </div>
+            <ConfidenceBadge score={deal.dealConfidence} />
+          </div>
         </div>
       </div>
 
       {/* Content */}
-      <div className="p-4 flex flex-col flex-1 gap-3">
-        {/* Destination */}
-        <div>
-          <div className="flex items-start justify-between gap-2">
-            <div>
-              <h3 className="font-semibold text-foreground text-base leading-tight">{deal.destination}</h3>
-              <p className="text-secondary text-sm">{deal.country}</p>
-            </div>
-            <ConfidenceBadge score={deal.dealConfidence} />
-          </div>
-          <p className="text-sm text-secondary mt-1">{deal.hotel}</p>
-        </div>
+      <div className="p-4 flex flex-col flex-1 gap-2.5">
+        {/* Hotel */}
+        <p className="text-sm text-foreground font-medium leading-tight">{deal.hotel}</p>
 
-        {/* Dates */}
-        <div className="flex items-center gap-1.5 text-sm text-secondary">
-          <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" />
-          </svg>
-          <span>{deal.dates} · {deal.nights} nights</span>
+        {/* Flight info + dates */}
+        <div className="flex flex-col gap-1.5 text-sm text-secondary">
+          {airlineHighlight && (
+            <span className="flex items-center gap-1.5">
+              <svg className="w-3.5 h-3.5 flex-shrink-0 text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+              </svg>
+              {airlineHighlight}
+            </span>
+          )}
+          <span className="flex items-center gap-1.5">
+            <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" />
+            </svg>
+            {deal.dates} · {deal.nights} nights
+          </span>
         </div>
 
         {/* Price */}
-        <div>
+        <div className="mt-auto pt-2 border-t border-border/40">
           <div className="flex items-baseline gap-2">
-            <span className="font-mono text-2xl font-bold text-accent">
+            <span className="font-mono text-2xl font-bold text-foreground">
               £{deal.pricePerPerson}
             </span>
-            <span className="text-secondary text-sm font-mono line-through">
-              £{deal.originalPrice}
-            </span>
-            <span className="text-secondary text-xs">pp</span>
+            {savingsPct > 0 && (
+              <span className="text-secondary/50 text-sm font-mono line-through">
+                £{deal.originalPrice}
+              </span>
+            )}
+            <span className="text-secondary text-xs ml-auto">per person</span>
           </div>
-          <p className="text-xs text-secondary mt-0.5">{deal.confidenceRationale}</p>
+          <p className="text-[11px] text-secondary/60 mt-1">{deal.confidenceRationale}</p>
         </div>
 
         {/* Tags */}
-        <div className="flex flex-wrap gap-1">
+        <div className="flex flex-wrap gap-1.5">
           {deal.tags.slice(0, 4).map((tag) => (
             <span
               key={tag}
-              className="text-xs px-2 py-0.5 rounded-full bg-muted border border-border text-secondary capitalize"
+              className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-secondary capitalize"
             >
               {tag}
             </span>
@@ -103,9 +125,9 @@ export default function DealCard({ deal }: DealCardProps) {
         {/* CTA */}
         <button
           onClick={scrollToWaitlist}
-          className="mt-auto w-full border border-accent text-accent hover:bg-accent hover:text-white font-medium py-2.5 rounded-xl text-sm transition-all duration-200 cursor-pointer group-hover:bg-accent group-hover:text-white"
+          className="w-full bg-foreground hover:bg-foreground/90 text-white font-display font-medium py-2.5 rounded-xl text-sm transition-all duration-200 cursor-pointer mt-1"
         >
-          View Deal <span aria-hidden="true">→</span>
+          View Deal
         </button>
       </div>
     </article>
