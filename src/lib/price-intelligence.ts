@@ -5,8 +5,8 @@
  * statistics for deal confidence scoring.
  */
 
-import { Redis } from "@upstash/redis";
 import { getSupabase } from "./supabase";
+import { getRedis } from "./redis";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -49,29 +49,6 @@ export interface MarketPrice {
   stats: RouteStats | null;
 }
 
-
-// ---------------------------------------------------------------------------
-// Lazy Redis client
-// ---------------------------------------------------------------------------
-
-let redisClient: Redis | null = null;
-
-function getRedis(): Redis | null {
-  if (redisClient) return redisClient;
-
-  try {
-    if (
-      !process.env.UPSTASH_REDIS_REST_URL ||
-      !process.env.UPSTASH_REDIS_REST_TOKEN
-    ) {
-      return null;
-    }
-    redisClient = Redis.fromEnv();
-    return redisClient;
-  } catch {
-    return null;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // KV key helpers

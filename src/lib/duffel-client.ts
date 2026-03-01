@@ -220,7 +220,6 @@ export async function searchFlights(params: {
         limit: 5,
       });
       const offers = offersResponse.data ?? [];
-      console.log(`Flights to ${dest} (${cityInfo.iata}): ${offers.length} offers`);
 
       // Take cheapest offer (already sorted by total_amount)
       const cheapest = offers[0];
@@ -377,7 +376,6 @@ export async function searchStays(params: {
           });
 
           const stayResults = response.data.results ?? [];
-          console.log(`Stays in ${dest}: ${stayResults.length} results`);
 
           return stayResults
             .sort(

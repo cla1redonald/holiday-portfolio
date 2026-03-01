@@ -6,6 +6,7 @@ import { buildDeals } from '@/lib/deal-builder';
 import { buildQueryText, embedText } from '@/lib/embeddings';
 import { findSimilarDestinations } from '@/lib/destination-search';
 import { getServerSession, saveServerSession, createServerSession } from '@/lib/session-store';
+import { getRedis } from '@/lib/redis';
 import { SearchResult, SessionProfile } from '@/types';
 
 /** Validate and sanitize client-provided session profile to prevent abuse */
@@ -67,18 +68,20 @@ export async function OPTIONS(request: NextRequest) {
   return setCorsHeaders(res, origin);
 }
 
-const RATE_LIMIT = { windowMs: 60_000, maxRequests: 5 };
-const requestCounts = new Map<string, { count: number; resetTime: number }>();
+async function isRateLimited(ip: string): Promise<boolean> {
+  try {
+    const redis = getRedis();
+    if (!redis) return false; // No Redis = no rate limiting (graceful degradation)
 
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const record = requestCounts.get(ip);
-  if (!record || now > record.resetTime) {
-    requestCounts.set(ip, { count: 1, resetTime: now + RATE_LIMIT.windowMs });
-    return false;
+    const key = `ratelimit:search:${ip}`;
+    const count = await redis.incr(key);
+    if (count === 1) {
+      await redis.expire(key, 60); // 60 second window
+    }
+    return count > 5; // 5 requests per minute
+  } catch {
+    return false; // Redis error = don't block the request
   }
-  record.count++;
-  return record.count > RATE_LIMIT.maxRequests;
 }
 
 function addDays(date: Date, days: number): string {
@@ -92,7 +95,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-    if (isRateLimited(ip)) {
+    if (await isRateLimited(ip)) {
       return setCorsHeaders(
         NextResponse.json(
           { error: 'Too many requests. Please try again in a minute.' },
@@ -132,9 +135,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 1: Parse the natural language query with Claude Haiku
-    console.log('[search] Parsing query with Haiku...');
     const intent = await parseSearchQuery(query);
-    console.log('[search] Haiku parsed:', JSON.stringify({ destinations: intent.destinations, nights: intent.nights, travellers: intent.travellers }));
 
     // Step 1.5: Semantic destination matching
     const queryText = buildQueryText(intent);
@@ -165,7 +166,6 @@ export async function POST(request: NextRequest) {
           seedPriceGbp: m.seedPriceGbp,
         }));
         destinationTags = Object.fromEntries(top.map(m => [m.slug, m.tags]));
-        console.log('[search] Semantic matches:', matches.map(m => `${m.slug} (${m.similarity.toFixed(2)})`).join(', '));
       }
     }
 
@@ -193,10 +193,7 @@ export async function POST(request: NextRequest) {
       departureDate = addDays(now, 21);
       returnDate = addDays(now, 21 + intent.nights);
     }
-    console.log('[search] Dates:', departureDate, '→', returnDate);
-
     // Step 3: Search flights and stays in parallel
-    console.log('[search] Searching Duffel flights + stays for:', destinations.join(', '));
     const [flights, stays] = await Promise.all([
       searchFlights({
         destinations,
@@ -214,7 +211,6 @@ export async function POST(request: NextRequest) {
         resolvedDestinations,
       }),
     ]);
-    console.log('[search] Flights:', flights.length, 'results. Stays:', stays.length, 'results');
 
     // Step 4: Bundle into deals (async — fetches market price data)
     const resolvedMap: Record<string, { iata: string; country: string; imageUrl: string; seedPriceGbp: number | null }> = {};
@@ -253,7 +249,6 @@ export async function POST(request: NextRequest) {
       destinationTags,
       resolvedDestinations: resolvedMap,
     });
-    console.log('[search] Built', deals.length, 'deals');
 
     // Strip internal margin fields before sending to client
     const result: SearchResult = {

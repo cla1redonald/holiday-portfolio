@@ -40,6 +40,18 @@ Last updated: 2026-03-01
 | 22 | Cold start penalty on first request | — | DONE |
 | 23 | Duffel singleton caches potentially revoked tokens | duffel-client.ts | DONE |
 
+## P1 — UX & Product Design
+
+| # | Issue | Reference | Status |
+|---|-------|-----------|--------|
+| 35 | Design full single-page UX flow beyond search → waitlist CTA | All current components | BACKLOG |
+| | — Search → results → deal detail → booking intent flow | pricing.ts, deal-builder.ts | |
+| | — Integrate pricing engine concepts (transparent pricing, price breakdown, service fee visibility) | research-8-tiered-pricing-model.md | |
+| | — Integrate recommendation engine concepts (preference learning, confidence explanation, personalisation signals) | session-preferences.ts, deal-builder.ts | |
+| | — Payment/subscription UX (free tier, price unlock, Pro) | research-8, issues #32-34 | |
+| | — What happens when user clicks "View Deal"? Full journey to booking | issues #26, #29 | |
+| | **Approach:** Use @strategist + @designer to design the flow before building. Start with user journey mapping, then screen specs, then implement. | | |
+
 ## Feature Backlog — Enhancements
 
 | # | Feature | Reference | Status |

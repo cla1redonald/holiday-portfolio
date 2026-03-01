@@ -6,6 +6,33 @@
 
 ---
 
+## Current Status & Direction (2026-03-01)
+
+### What Roami is today
+
+An NLP-powered city break search engine with real flight data. Users type natural language queries ("somewhere warm, good food, under £400"), Claude Haiku parses intent, Duffel API returns real flights, and a 5-factor deal confidence scoring model rates each result. A pricing engine provides session-level personalisation and budget context. This is live at roami.world.
+
+### What's next
+
+Get city breaks working end-to-end for friends testing:
+1. **Hotels** — activate Duffel Stays (needs sales contact) or alternative hotel source
+2. **Booking flow** — move from "View Deal" to actual checkout
+3. **Friends testing** — give 10-20 friends access, collect qualitative feedback on whether they'd actually use this for real trips
+
+### Strategic context
+
+This is a **deliberate thin-slice approach**, not a prototype or demo. The original strategy called for landing page validation before building. That was attempted but the landing page wasn't usable for meaningful testing. The pivot: build the thinnest possible working product and validate through real usage by friends instead of proxy metrics.
+
+The full strategy analysis (13 framework artefacts in `docs/strategy/`) remains valid. The three core cruxes — booking leakage, cold start paradox, affiliate cash flow trap — are unchanged. The difference is how we validate: live product with real users, not landing page conversion rates.
+
+See `docs/strategy/00-gap-analysis.md` (Strategy Pivot section) for the full rationale.
+
+### Economics
+
+Acceptable to run at a loss or break-even during friends testing. API costs (Duffel at $3/order + 1%, Claude Haiku at ~£0.006/user/month) are manageable at 10-20 users. Revenue is not the goal right now — honest product feedback is.
+
+---
+
 ## What Roami Is
 
 A travel personalisation engine that learns how you travel, finds deals you'd love, and manages your year of trips. City breaks are the entry hook; the portfolio view is the loyalty layer. NLP input (not filters), semantic preference graph, visible preference profile.

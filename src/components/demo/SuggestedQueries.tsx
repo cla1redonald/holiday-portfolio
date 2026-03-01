@@ -1,14 +1,14 @@
 'use client';
 
 const SUGGESTED_QUERIES = [
-  { text: 'Somewhere warm under £300', icon: '☀️' },
-  { text: 'Long weekend, great food', icon: '🍽️' },
-  { text: 'Greek islands for a couple', icon: '🏝️' },
-  { text: 'Nordic city break', icon: '🌊' },
-  { text: 'Moroccan adventure under £400', icon: '🕌' },
-  { text: 'Somewhere like Lisbon but quieter', icon: '🌿' },
-  { text: 'Architecture and art in Eastern Europe', icon: '🏛️' },
-  { text: 'Beach and nightlife, 5 nights', icon: '🏖️' },
+  { text: 'Somewhere warm under £300' },
+  { text: 'Long weekend, great food' },
+  { text: 'Greek islands for a couple' },
+  { text: 'Nordic city break' },
+  { text: 'Moroccan adventure under £400' },
+  { text: 'Somewhere like Lisbon but quieter' },
+  { text: 'Architecture and art in Eastern Europe' },
+  { text: 'Beach and nightlife, 5 nights' },
 ];
 
 interface SuggestedQueriesProps {
@@ -26,7 +26,6 @@ export default function SuggestedQueries({ onSelect }: SuggestedQueriesProps) {
           className="text-sm px-3.5 py-1.5 rounded-full bg-surface border border-border/60 text-secondary hover:border-accent/40 hover:text-foreground hover:bg-accent/[0.04] transition-all duration-200 cursor-pointer whitespace-nowrap card-shadow animate-fade-in"
           style={{ animationDelay: `${300 + i * 50}ms` }}
         >
-          <span className="mr-1.5">{query.icon}</span>
           {query.text}
         </button>
       ))}

@@ -184,7 +184,7 @@ export default function DealCard({ deal }: DealCardProps) {
         {/* Price */}
         <div className="mt-auto pt-2 border-t border-border/40">
           <div className="flex items-baseline gap-2">
-            <span className="font-mono text-2xl font-bold text-foreground">
+            <span className="font-mono text-2xl font-bold text-accent">
               £{deal.pricePerPerson}
             </span>
             {savingsPct > 0 && (
@@ -230,7 +230,7 @@ export default function DealCard({ deal }: DealCardProps) {
         {/* CTA */}
         <button
           onClick={scrollToWaitlist}
-          className="w-full bg-foreground hover:bg-foreground/90 text-white font-display font-medium py-2.5 rounded-xl text-sm transition-all duration-200 cursor-pointer mt-1"
+          className="w-full bg-accent hover:bg-accent/90 text-white font-display font-medium py-2.5 rounded-xl text-sm transition-all duration-200 cursor-pointer mt-1"
         >
           View Deal
         </button>
