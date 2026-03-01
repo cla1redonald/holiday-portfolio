@@ -46,7 +46,7 @@ export default function DealDetail({ deal, onBook }: DealDetailProps) {
               <p className="text-white/80 text-lg mt-1">{deal.country}</p>
               <p className="text-white/60 text-sm mt-1">{deal.dates} · {deal.nights} nights</p>
             </div>
-            <ConfidenceBadge score={deal.dealConfidence} />
+            {/* Confidence score removed — internal metric, not useful for users */}
           </div>
         </div>
       </div>

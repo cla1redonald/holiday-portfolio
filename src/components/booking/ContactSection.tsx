@@ -57,20 +57,42 @@ export default function ContactSection({ deal, travellers }: ContactSectionProps
         </div>
       </div>
 
-      {/* Price */}
-      <div className="bg-muted rounded-xl p-4">
-        <div className="flex justify-between items-baseline">
-          <div>
+      {/* Price breakdown */}
+      <div className="bg-muted rounded-xl p-4 space-y-2">
+        {deal.pricing && (
+          <div className="space-y-1.5 text-sm">
+            <div className="flex justify-between">
+              <span className="text-secondary">Flights</span>
+              <span className="font-mono text-foreground">£{Math.round(deal.pricing.flightCost)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-secondary">
+                Hotel{deal.pricing.hotelEstimated ? ' (est.)' : ''}
+              </span>
+              <span className="font-mono text-foreground">£{Math.round(deal.pricing.hotelCost)}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-secondary">Booking fee</span>
+              <span className="font-mono text-foreground">£{Math.round(deal.pricing.markup)}</span>
+            </div>
+            <div className="border-t border-border/60 pt-1.5 flex justify-between">
+              <span className="text-secondary">{travellers} traveller{travellers > 1 ? 's' : ''}</span>
+              <span className="font-display text-lg font-bold text-accent">£{totalPrice}</span>
+            </div>
+            <div className="text-right">
+              <span className="text-xs text-secondary">£{Math.round(deal.pricePerPerson)}/person</span>
+            </div>
+          </div>
+        )}
+        {!deal.pricing && (
+          <div className="flex justify-between items-baseline">
             <span className="text-sm text-secondary">{travellers} traveller{travellers > 1 ? 's' : ''}</span>
+            <div className="text-right">
+              <span className="font-display text-2xl font-bold text-accent">£{totalPrice}</span>
+              <span className="text-sm text-secondary ml-1">total</span>
+            </div>
           </div>
-          <div className="text-right">
-            <span className="font-display text-2xl font-bold text-accent">£{totalPrice}</span>
-            <span className="text-sm text-secondary ml-1">total</span>
-          </div>
-        </div>
-        <div className="text-right">
-          <span className="text-xs text-secondary">£{Math.round(deal.pricePerPerson)}/person</span>
-        </div>
+        )}
       </div>
 
       {/* Contact CTAs */}

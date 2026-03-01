@@ -135,7 +135,7 @@ export default function DealCard({ deal }: DealCardProps) {
               </h3>
               <p className="text-white/80 text-sm">{deal.country}</p>
             </div>
-            <ConfidenceBadge score={deal.dealConfidence} />
+            {/* Confidence score removed — internal metric, not useful for users */}
           </div>
         </div>
       </div>
