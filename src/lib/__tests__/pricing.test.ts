@@ -137,6 +137,10 @@ describe('PRICING_CONFIG', () => {
     expect(cats.meals.enabled).toBe(false);
     expect(cats.flexibility.enabled).toBe(true);
   });
+
+  it('has minMarginPercentage set to 0 for friends testing (bump to 0.05 at scale)', () => {
+    expect(PRICING_CONFIG.ancillaries.minMarginPercentage).toBe(0);
+  });
 });
 
 
@@ -167,6 +171,9 @@ describe('priceAncillary', () => {
     expect(result.costToUs).toBeCloseTo(1.60 + 33 * 0.014, 2);
     // Margin: £3 markup - ~£2.06 cost = ~£0.94
     expect(result.netMargin).toBeGreaterThan(0);
+    // Margin percentage is returned for visibility
+    expect(result.marginPercentage).toBeDefined();
+    expect(result.marginPercentage).toBeCloseTo(0.94 / 33, 2); // ~2.8%
   });
 
   it('rejects a cheap £10 bag (below £20 minimum)', () => {
@@ -196,6 +203,13 @@ describe('priceAncillary', () => {
     const result = priceAncillary('bags', 33);
     expect(result.customerPrice).toBe(37);
     expect(Number.isInteger(result.customerPrice)).toBe(true);
+  });
+
+  it('reports margin percentage on all enabled ancillaries', () => {
+    // A £55 bag has ~5% margin (see breakeven calc in pricing.ts comments)
+    const result = priceAncillary('bags', 55);
+    expect(result.shouldOffer).toBe(true);
+    expect(result.marginPercentage).toBeGreaterThan(0.04);
   });
 });
 

@@ -39,15 +39,19 @@ export const PRICING_CONFIG = {
   },
 
   // Ancillary pricing — Duffel charges £1.60 flat per ancillary.
-  // Only offer ancillaries where our markup exceeds the flat fee.
+  // Only offer ancillaries where our net margin exceeds the minimum threshold.
   ancillaries: {
     // Minimum ancillary price (GBP) worth offering to the customer.
     // Below this, the £1.60 flat fee + payment processing eats the markup.
-    // At 10% markup: £1.60 / 0.10 = £16 breakeven. Use £20 for safety.
     minViablePriceGBP: 20,
 
     // Markup on ancillaries (higher than flights — customers expect ancillary markup)
     markupPercentage: 0.10,        // 10% on ancillaries
+
+    // Minimum net margin as a percentage of customer price.
+    // If our profit is less than this % of what the customer pays, don't offer it.
+    // Set to 0 for friends testing (any profit is fine). Bump to 0.05 (5%) at scale.
+    minMarginPercentage: 0,
 
     // Ancillary categories and whether to offer them
     categories: {
@@ -193,6 +197,8 @@ export interface AncillaryPricing {
   netMargin: number;
   /** Price the customer sees (cost + markup) */
   customerPrice: number;
+  /** Net margin as a percentage of customer price (e.g. 0.05 = 5%) */
+  marginPercentage?: number;
 }
 
 /**
@@ -229,17 +235,29 @@ export function priceAncillary(
   // Check against minimum viable price
   const belowMinimum = priceGBP < cfg.ancillaries.minViablePriceGBP;
 
+  // Check margin meets the 5% threshold (net margin / customer price)
+  const marginPercentage = customerPrice > 0 ? netMargin / customerPrice : 0;
+  const meetsMarginThreshold = marginPercentage >= cfg.ancillaries.minMarginPercentage;
+
+  const shouldOffer = !belowMinimum && meetsMarginThreshold;
+
+  let reason: string;
+  if (belowMinimum) {
+    reason = `Price £${priceGBP} below £${cfg.ancillaries.minViablePriceGBP} minimum`;
+  } else if (!meetsMarginThreshold) {
+    reason = `Margin ${(marginPercentage * 100).toFixed(1)}% below ${cfg.ancillaries.minMarginPercentage * 100}% threshold`;
+  } else {
+    reason = `${(marginPercentage * 100).toFixed(1)}% margin (£${netMargin.toFixed(2)})`;
+  }
+
   return {
-    shouldOffer: !belowMinimum && netMargin > 0,
-    reason: belowMinimum
-      ? `Price £${priceGBP} below £${cfg.ancillaries.minViablePriceGBP} minimum`
-      : netMargin > 0
-        ? `+£${netMargin.toFixed(2)} margin`
-        : `Loss of £${Math.abs(netMargin).toFixed(2)} per item`,
+    shouldOffer,
+    reason,
     costToUs,
     markupRevenue: markup,
     netMargin,
     customerPrice,
+    marginPercentage,
   };
 }
 
