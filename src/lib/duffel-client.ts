@@ -1,5 +1,4 @@
 import { Duffel } from '@duffel/api';
-import { lookupCity } from './iata-codes';
 import { getDestinationBySlug } from './destination-search';
 
 // Creates a Duffel client using the API token from environment
@@ -40,17 +39,20 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
 const resolveCache = new Map<string, { data: { iata: string; name: string; country: string; latitude: number; longitude: number; imageUrl: string } | null; expiresAt: number }>();
 
 export interface ResolvedDestination {
+  slug?: string;
   iata: string;
   name: string;
   country: string;
   latitude: number;
   longitude: number;
   imageUrl: string;
+  tags?: string[];
+  seedPriceGbp?: number | null;
 }
 
 /**
- * Resolve a destination by slug/name. Checks Supabase first, falls back to
- * hardcoded iata-codes, then Duffel Places API.
+ * Resolve a destination by slug/name. Checks Supabase first, then falls back
+ * to Duffel Places API.
  */
 export async function resolveDestination(query: string): Promise<ResolvedDestination | null> {
   const key = query.toLowerCase();
@@ -72,22 +74,7 @@ export async function resolveDestination(query: string): Promise<ResolvedDestina
     return result;
   }
 
-  // 2. Fall back to hardcoded lookup
-  const cityInfo = lookupCity(key);
-  if (cityInfo) {
-    const result: ResolvedDestination = {
-      iata: cityInfo.iata,
-      name: key.charAt(0).toUpperCase() + key.slice(1),
-      country: cityInfo.country,
-      latitude: cityInfo.latitude,
-      longitude: cityInfo.longitude,
-      imageUrl: cityInfo.image,
-    };
-    resolveCache.set(key, { data: result, expiresAt: Date.now() + 3_600_000 });
-    return result;
-  }
-
-  // 3. Fall back to Duffel Places API
+  // 2. Fall back to Duffel Places API
   try {
     const duffel = getDuffel();
     const response = await duffel.suggestions.list({ query: key });
@@ -177,10 +164,17 @@ export async function searchFlights(params: {
   departureDate: string;
   returnDate: string;
   travellers: number;
+  resolvedDestinations?: ResolvedDestination[];
 }): Promise<FlightResult[]> {
   const duffel = getDuffel();
   const origin = params.origin ?? 'LHR';
   const results: FlightResult[] = [];
+
+  // Build a lookup map from pre-resolved destinations
+  const resolvedMap = new Map<string, ResolvedDestination>();
+  for (const rd of params.resolvedDestinations ?? []) {
+    resolvedMap.set(rd.slug ?? '', rd);
+  }
 
   // Passengers array — matching Duffel docs exactly
   const passengers = Array.from({ length: params.travellers }, () => ({
@@ -189,7 +183,7 @@ export async function searchFlights(params: {
 
   // Search flights to each destination in parallel (max 3), with per-search timeout
   const searches = params.destinations.slice(0, 3).map((dest) => withTimeout((async () => {
-    const resolved = await resolveDestination(dest);
+    const resolved = resolvedMap.get(dest) ?? await resolveDestination(dest);
     if (!resolved) return null;
     const cityInfo = { iata: resolved.iata, latitude: resolved.latitude, longitude: resolved.longitude };
 
@@ -340,6 +334,7 @@ export async function searchStays(params: {
   checkOut: string;
   guests: number;
   rooms?: number;
+  resolvedDestinations?: ResolvedDestination[];
 }): Promise<StayResult[]> {
   const duffel = getDuffel();
   const results: StayResult[] = [];
@@ -347,6 +342,12 @@ export async function searchStays(params: {
   const guests = Array.from({ length: params.guests }, () => ({
     type: 'adult' as const,
   }));
+
+  // Build a lookup map from pre-resolved destinations
+  const resolvedMap = new Map<string, ResolvedDestination>();
+  for (const rd of params.resolvedDestinations ?? []) {
+    resolvedMap.set(rd.slug ?? '', rd);
+  }
 
   const nights = Math.ceil(
     (new Date(params.checkOut).getTime() - new Date(params.checkIn).getTime()) /
@@ -356,7 +357,7 @@ export async function searchStays(params: {
   const searches = params.destinations.slice(0, 3).map((dest) =>
     withTimeout(
       (async () => {
-        const resolved = await resolveDestination(dest);
+        const resolved = resolvedMap.get(dest) ?? await resolveDestination(dest);
         if (!resolved) return [];
         const cityInfo = { latitude: resolved.latitude, longitude: resolved.longitude };
 

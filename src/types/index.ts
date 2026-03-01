@@ -29,6 +29,7 @@ export interface SearchResult {
   preferences: UserPreference[];
   query: string;
   source?: 'duffel' | 'mock';
+  sessionId?: string;
 }
 
 export interface UserPreference {
@@ -55,13 +56,12 @@ export interface ParsedIntent {
 }
 
 export interface PriceBreakdown {
-  flightCost: number;         // net flight cost per person (GBP)
-  hotelCost: number;          // net hotel cost per person (GBP)
+  flightCost: number;         // raw flight cost per person (GBP)
+  hotelCost: number;          // raw hotel cost per person (GBP)
   hotelEstimated: boolean;    // true if hotel cost is estimated (no stays data)
-  subtotal: number;           // flightCost + hotelCost
-  margin: number;             // Roami margin per person (0 for now)
-  marginType: 'none' | 'affiliate' | 'markup';
-  total: number;              // subtotal + margin = pricePerPerson
+  subtotal: number;           // flightCost + hotelCost (pre-markup)
+  markup: number;             // from pricing engine (5% order markup)
+  total: number;              // subtotal + markup = customer price per person
 }
 
 export interface FlightDetail {
@@ -84,14 +84,6 @@ export interface PriceContext {
   sampleCount: number;
   trend: 'rising' | 'falling' | 'stable' | null;
   source: 'observed' | 'seed';
-}
-
-export interface MarginConfig {
-  mode: 'passthrough' | 'affiliate' | 'markup';
-  affiliateRate: number;
-  markupRate: number;
-  minMarginGBP: number;
-  maxMarginGBP: number;
 }
 
 export interface SessionProfile {

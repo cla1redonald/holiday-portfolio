@@ -199,6 +199,7 @@ export default function DealCard({ deal }: DealCardProps) {
           {deal.pricing && (
             <p className="text-[11px] text-secondary/60 mt-0.5">
               Flights £{deal.pricing.flightCost} · Hotel {deal.pricing.hotelEstimated ? '~' : ''}£{deal.pricing.hotelCost}
+              {deal.pricing.markup > 0 && ` · £${deal.pricing.markup} booking fee`}
             </p>
           )}
 
@@ -213,16 +214,18 @@ export default function DealCard({ deal }: DealCardProps) {
         </div>
 
         {/* Tags */}
-        <div className="flex flex-wrap gap-1.5">
-          {deal.tags.slice(0, 4).map((tag) => (
-            <span
-              key={tag}
-              className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-secondary capitalize"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
+        {deal.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {deal.tags.slice(0, 4).map((tag) => (
+              <span
+                key={tag}
+                className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-secondary capitalize"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* CTA */}
         <button

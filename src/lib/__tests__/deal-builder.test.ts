@@ -6,21 +6,8 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 
 vi.mock('../duffel-client', () => ({}));
 
-vi.mock('../iata-codes', () => ({
-  lookupCity: vi.fn((name: string) => {
-    const cities: Record<string, { iata: string; country: string; latitude: number; longitude: number; image: string }> = {
-      lisbon: { iata: 'LIS', country: 'Portugal', latitude: 38.7223, longitude: -9.1393, image: 'https://example.com/lisbon.jpg' },
-      barcelona: { iata: 'BCN', country: 'Spain', latitude: 41.3874, longitude: 2.1686, image: 'https://example.com/barcelona.jpg' },
-      prague: { iata: 'PRG', country: 'Czech Republic', latitude: 50.0755, longitude: 14.4378, image: 'https://example.com/prague.jpg' },
-      budapest: { iata: 'BUD', country: 'Hungary', latitude: 47.4979, longitude: 19.0402, image: 'https://example.com/budapest.jpg' },
-    };
-    return cities[name.toLowerCase()];
-  }),
-  getDestinationImage: vi.fn((dest: string) => `https://images.example.com/${dest}.jpg`),
-  getCountry: vi.fn((dest: string) => {
-    const countries: Record<string, string> = { lisbon: 'Portugal', barcelona: 'Spain', prague: 'Czech Republic', budapest: 'Hungary' };
-    return countries[dest] ?? '';
-  }),
+vi.mock('../fx-rates', () => ({
+  getRate: vi.fn(() => Promise.resolve(1.0)),
 }));
 
 const mockGetMarketPrice = vi.fn();
@@ -31,14 +18,6 @@ vi.mock('../price-intelligence', () => ({
   getMarketPrice: (...args: unknown[]) => mockGetMarketPrice(...args),
   getPricePercentile: (...args: unknown[]) => mockGetPricePercentile(...args),
   logPriceObservations: (...args: unknown[]) => mockLogPriceObservations(...args),
-  SEED_PRICES: {
-    lisbon: 320,
-    barcelona: 350,
-    amsterdam: 380,
-    rome: 340,
-    prague: 260,
-    budapest: 250,
-  },
 }));
 
 // Import AFTER mocks are declared
@@ -110,6 +89,13 @@ function makeSessionProfile(overrides: Partial<SessionProfile> = {}): SessionPro
   };
 }
 
+const defaultResolvedDestinations: Record<string, { iata: string; country: string; imageUrl: string; seedPriceGbp: number | null }> = {
+  lisbon: { iata: 'LIS', country: 'Portugal', imageUrl: 'https://example.com/lisbon.jpg', seedPriceGbp: 280 },
+  barcelona: { iata: 'BCN', country: 'Spain', imageUrl: 'https://example.com/barcelona.jpg', seedPriceGbp: 320 },
+  prague: { iata: 'PRG', country: 'Czech Republic', imageUrl: 'https://example.com/prague.jpg', seedPriceGbp: 250 },
+  budapest: { iata: 'BUD', country: 'Hungary', imageUrl: 'https://example.com/budapest.jpg', seedPriceGbp: 220 },
+};
+
 const defaultParams = {
   flights: [makeFlight()],
   stays: [makeStay()],
@@ -117,6 +103,7 @@ const defaultParams = {
   travellers: 2,
   budgetPerPerson: null as number | null,
   origin: 'LHR',
+  resolvedDestinations: defaultResolvedDestinations,
 };
 
 // ---------------------------------------------------------------------------
@@ -163,16 +150,17 @@ describe('deal-builder — buildDeals', () => {
       expect(deals[0].dealConfidence).toBeGreaterThanOrEqual(45);
     });
 
-    it('boosts confidence when interests match destination strengths', async () => {
-      const dealsNoInterests = await buildDeals({ ...defaultParams, interests: [] });
+    it('boosts confidence when semantic similarity score is high', async () => {
+      const dealsNoSimilarity = await buildDeals({ ...defaultParams, interests: [] });
 
-      const dealsWithInterests = await buildDeals({
+      const dealsWithSimilarity = await buildDeals({
         ...defaultParams,
-        interests: ['food', 'culture', 'nightlife', 'beach', 'budget'],
+        interests: [],
+        similarityScores: { lisbon: 0.8 },
       });
 
-      expect(dealsWithInterests[0].dealConfidence).toBeGreaterThan(
-        dealsNoInterests[0].dealConfidence,
+      expect(dealsWithSimilarity[0].dealConfidence).toBeGreaterThan(
+        dealsNoSimilarity[0].dealConfidence,
       );
     });
 
@@ -285,33 +273,23 @@ describe('deal-builder — buildDeals', () => {
       );
     });
 
-    it('reduces alignment for dismissed preference overlaps', async () => {
-      const profileNoDismiss = makeSessionProfile({
-        searchCount: 3,
-        destinations: { lisbon: 2 },
-        dismissedPreferences: [],
-      });
-
-      const profileDismissed = makeSessionProfile({
-        searchCount: 3,
-        destinations: { lisbon: 2 },
-        dismissedPreferences: ['food', 'culture', 'nightlife'],
-      });
-
-      const dealsNoDismiss = await buildDeals({
+    it('Factor 2 returns 0 when no similarity scores are provided', async () => {
+      // Without similarity scores, interest match should contribute 0 points
+      const dealsNoScores = await buildDeals({
         ...defaultParams,
-        interests: [],
-        sessionProfile: profileNoDismiss,
+        interests: ['food', 'culture'],
+        similarityScores: undefined,
       });
 
-      const dealsDismissed = await buildDeals({
+      const dealsWithScores = await buildDeals({
         ...defaultParams,
-        interests: [],
-        sessionProfile: profileDismissed,
+        interests: ['food', 'culture'],
+        similarityScores: { lisbon: 0.7 },
       });
 
-      expect(dealsNoDismiss[0].dealConfidence).toBeGreaterThanOrEqual(
-        dealsDismissed[0].dealConfidence,
+      // With similarity, confidence should be higher
+      expect(dealsWithScores[0].dealConfidence).toBeGreaterThan(
+        dealsNoScores[0].dealConfidence,
       );
     });
 
@@ -361,11 +339,16 @@ describe('deal-builder — buildDeals', () => {
       expect(typeof deal.isLossMaker).toBe('boolean');
     });
 
-    it('includes pricing breakdown', async () => {
+    it('includes pricing breakdown with markup from pricing engine', async () => {
       const deals = await buildDeals(defaultParams);
 
       expect(deals[0].pricing).toBeDefined();
-      expect(deals[0].pricing!.marginType).toBe('none');
+      const pricing = deals[0].pricing!;
+      expect(pricing).toHaveProperty('markup');
+      expect(pricing).toHaveProperty('subtotal');
+      expect(pricing).toHaveProperty('total');
+      // subtotal + markup should equal total
+      expect(pricing.subtotal + pricing.markup).toBe(pricing.total);
     });
   });
 
@@ -465,23 +448,23 @@ describe('deal-builder — buildDeals', () => {
       expect(deals[0].confidenceRationale).toContain('Good match for your preferences');
     });
 
-    it('falls back to tag matching when similarity not provided', async () => {
-      const dealsWithTags = await buildDeals({
-        ...defaultParams,
-        interests: ['food', 'culture', 'nightlife', 'beach', 'budget'],
-      });
-
-      expect(dealsWithTags[0].confidenceRationale).toContain('Strong match for');
-    });
-
-    it('prefers similarity over tags when both could apply', async () => {
+    it('returns no interest match rationale when similarity not provided', async () => {
       const deals = await buildDeals({
         ...defaultParams,
         interests: ['food', 'culture'],
-        similarityScores: { lisbon: 0.35 },
       });
 
-      expect(deals[0].confidenceRationale).toContain('Partial match');
+      // Without similarity scores, Factor 2 is 0 — no match rationale
+      expect(deals[0].confidenceRationale).not.toContain('match');
+    });
+
+    it('uses destinationTags for display tags on deals', async () => {
+      const deals = await buildDeals({
+        ...defaultParams,
+        destinationTags: { lisbon: ['food', 'culture', 'nightlife'] },
+      });
+
+      expect(deals[0].tags).toEqual(['food', 'culture', 'nightlife']);
     });
   });
 

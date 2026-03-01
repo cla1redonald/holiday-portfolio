@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { parseSearchQuery } from '@/lib/nlp-parser';
-import { searchFlights, searchStays } from '@/lib/duffel-client';
+import { searchFlights, searchStays, ResolvedDestination } from '@/lib/duffel-client';
 import { buildDeals } from '@/lib/deal-builder';
 import { buildQueryText, embedText } from '@/lib/embeddings';
 import { findSimilarDestinations } from '@/lib/destination-search';
+import { getServerSession, saveServerSession, createServerSession } from '@/lib/session-store';
 import { SearchResult, SessionProfile } from '@/types';
 
 /** Validate and sanitize client-provided session profile to prevent abuse */
@@ -100,6 +102,10 @@ export async function POST(request: NextRequest) {
       );
     }
 
+    // Session: read cookie
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get('roami_sid')?.value ?? null;
+
     const body = await request.json();
     const query = body.query;
 
@@ -135,6 +141,8 @@ export async function POST(request: NextRequest) {
     const queryEmbedding = await embedText(queryText);
     let destinations = intent.destinations;
     let similarityMap: Record<string, number> = {};
+    let resolvedDestinations: ResolvedDestination[] = [];
+    let destinationTags: Record<string, string[]> = {};
 
     if (queryEmbedding) {
       const matches = await findSimilarDestinations(queryEmbedding, {
@@ -142,8 +150,21 @@ export async function POST(request: NextRequest) {
         budgetPerPerson: intent.budgetPerPerson,
       });
       if (matches.length > 0) {
-        destinations = matches.slice(0, 3).map(m => m.slug);
+        const top = matches.slice(0, 3);
+        destinations = top.map(m => m.slug);
         similarityMap = Object.fromEntries(matches.map(m => [m.slug, m.similarity]));
+        resolvedDestinations = top.map(m => ({
+          slug: m.slug,
+          iata: m.iata,
+          name: m.name,
+          country: m.country,
+          latitude: m.latitude,
+          longitude: m.longitude,
+          imageUrl: m.imageUrl,
+          tags: m.tags,
+          seedPriceGbp: m.seedPriceGbp,
+        }));
+        destinationTags = Object.fromEntries(top.map(m => [m.slug, m.tags]));
         console.log('[search] Semantic matches:', matches.map(m => `${m.slug} (${m.similarity.toFixed(2)})`).join(', '));
       }
     }
@@ -183,17 +204,43 @@ export async function POST(request: NextRequest) {
         departureDate,
         returnDate,
         travellers: intent.travellers,
+        resolvedDestinations,
       }),
       searchStays({
         destinations,
         checkIn: departureDate,
         checkOut: returnDate,
         guests: intent.travellers,
+        resolvedDestinations,
       }),
     ]);
     console.log('[search] Flights:', flights.length, 'results. Stays:', stays.length, 'results');
 
     // Step 4: Bundle into deals (async — fetches market price data)
+    const resolvedMap: Record<string, { iata: string; country: string; imageUrl: string; seedPriceGbp: number | null }> = {};
+    for (const rd of resolvedDestinations) {
+      if (rd.slug) {
+        resolvedMap[rd.slug] = {
+          iata: rd.iata,
+          country: rd.country,
+          imageUrl: rd.imageUrl ?? '',
+          seedPriceGbp: rd.seedPriceGbp ?? null,
+        };
+      }
+    }
+
+    // Merge session: prefer server-side if available, fall back to client-provided
+    let sessionProfile = sanitizeSessionProfile(body.sessionProfile);
+    if (sessionCookie) {
+      const serverSession = await getServerSession(sessionCookie);
+      if (serverSession) {
+        // Server session has higher search count = more data, prefer it
+        if (!sessionProfile || serverSession.searchCount >= sessionProfile.searchCount) {
+          sessionProfile = serverSession;
+        }
+      }
+    }
+
     const deals = await buildDeals({
       flights,
       stays,
@@ -201,8 +248,10 @@ export async function POST(request: NextRequest) {
       travellers: intent.travellers,
       budgetPerPerson: intent.budgetPerPerson,
       origin: intent.originAirport ?? undefined,
-      sessionProfile: sanitizeSessionProfile(body.sessionProfile),
+      sessionProfile,
       similarityScores: similarityMap,
+      destinationTags,
+      resolvedDestinations: resolvedMap,
     });
     console.log('[search] Built', deals.length, 'deals');
 
@@ -214,7 +263,33 @@ export async function POST(request: NextRequest) {
       source: 'duffel',
     };
 
-    return setCorsHeaders(NextResponse.json(result), origin);
+    // Persist session server-side (best-effort, non-blocking for response)
+    let sessionId = sessionCookie;
+    if (sessionProfile) {
+      if (sessionId) {
+        // Fire-and-forget save
+        saveServerSession(sessionId, sessionProfile).catch(() => {});
+      } else {
+        // Create new server session
+        sessionId = await createServerSession(sessionProfile);
+      }
+    }
+    result.sessionId = sessionId ?? undefined;
+
+    const response = setCorsHeaders(NextResponse.json(result), origin);
+
+    // Set session cookie if new or missing
+    if (sessionId && sessionId !== sessionCookie) {
+      response.cookies.set('roami_sid', sessionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+        path: '/',
+      });
+    }
+
+    return response;
   } catch (err) {
     console.error('Search API error:', err);
     return setCorsHeaders(

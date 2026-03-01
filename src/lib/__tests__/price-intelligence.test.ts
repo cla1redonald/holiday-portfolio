@@ -20,12 +20,16 @@ vi.mock('@upstash/redis', () => ({
 vi.stubEnv('UPSTASH_REDIS_REST_URL', 'https://fake.upstash.io');
 vi.stubEnv('UPSTASH_REDIS_REST_TOKEN', 'fake-token');
 
+// Mock Supabase for seed price lookups
+vi.mock('../supabase', () => ({
+  getSupabase: vi.fn(() => null),
+}));
+
 // Import AFTER mocks are declared
 import {
   logPriceObservations,
   getMarketPrice,
   getPricePercentile,
-  SEED_PRICES,
   type PriceObservation,
   type RouteStats,
 } from '../price-intelligence';
@@ -225,18 +229,19 @@ describe('price-intelligence', () => {
     });
 
     // -----------------------------------------------------------------------
-    // 2. Falls back to seed price for known destinations
+    // 2. Falls back to seed/generic price when observed data insufficient
     // -----------------------------------------------------------------------
-    it('falls back to seed price for known destinations', async () => {
+    it('falls back to seed source when insufficient observed data', async () => {
       // Redis returns stats with too few samples
       mockRedisGet.mockResolvedValueOnce(makeStats({ sampleCount: 5 }));
 
       const result = await getMarketPrice('LHR-lisbon', 3);
 
       expect(result.source).toBe('seed');
-      expect(result.price).toBe(SEED_PRICES['lisbon']); // 320 for 3 nights
       expect(result.sampleCount).toBe(0);
       expect(result.stats).toBeNull();
+      // With Supabase mocked to null, falls back to generic price
+      expect(result.price).toBe(300); // 300 * (3/3)
     });
 
     // -----------------------------------------------------------------------
@@ -254,16 +259,15 @@ describe('price-intelligence', () => {
     });
 
     // -----------------------------------------------------------------------
-    // 4. Scales seed price by nights
+    // 4. Generic fallback scales by nights
     // -----------------------------------------------------------------------
-    it('scales seed price by nights', async () => {
+    it('generic fallback scales by nights', async () => {
       mockRedisGet.mockResolvedValueOnce(null);
 
       const result = await getMarketPrice('LHR-lisbon', 7);
 
-      // lisbon seed = 320, scaled: 320 * (7/3) ≈ 746.67
-      const expected = Math.round(320 * (7 / 3) * 100) / 100;
-      expect(result.price).toBe(expected);
+      // With Supabase mocked to null, generic fallback: 300 * (7/3) ≈ 700
+      expect(result.price).toBe(700);
       expect(result.source).toBe('seed');
     });
 

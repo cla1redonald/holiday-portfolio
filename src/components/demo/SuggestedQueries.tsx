@@ -3,10 +3,12 @@
 const SUGGESTED_QUERIES = [
   { text: 'Somewhere warm under £300', icon: '☀️' },
   { text: 'Long weekend, great food', icon: '🍽️' },
-  { text: 'Romantic city break', icon: '❤️' },
-  { text: 'Culture trip under £400', icon: '🏛️' },
-  { text: 'Beach and budget', icon: '🏖️' },
-  { text: 'Luxury weekend away', icon: '✨' },
+  { text: 'Greek islands for a couple', icon: '🏝️' },
+  { text: 'Nordic city break', icon: '🌊' },
+  { text: 'Moroccan adventure under £400', icon: '🕌' },
+  { text: 'Somewhere like Lisbon but quieter', icon: '🌿' },
+  { text: 'Architecture and art in Eastern Europe', icon: '🏛️' },
+  { text: 'Beach and nightlife, 5 nights', icon: '🏖️' },
 ];
 
 interface SuggestedQueriesProps {

@@ -16,14 +16,8 @@ vi.mock('@duffel/api', () => ({
   })),
 }));
 
-vi.mock('../iata-codes', () => ({
-  lookupCity: vi.fn((name: string) => {
-    const cities: Record<string, { iata: string; country: string; latitude: number; longitude: number; image: string }> = {
-      lisbon: { iata: 'LIS', country: 'Portugal', latitude: 38.7223, longitude: -9.1393, image: 'https://example.com/lisbon.jpg' },
-      barcelona: { iata: 'BCN', country: 'Spain', latitude: 41.3874, longitude: 2.1686, image: 'https://example.com/barcelona.jpg' },
-    };
-    return cities[name.toLowerCase()];
-  }),
+vi.mock('../destination-search', () => ({
+  getDestinationBySlug: vi.fn(() => Promise.resolve(null)),
 }));
 
 // Import AFTER mocks are declared
@@ -75,12 +69,18 @@ function makeSdkResponse(results: ReturnType<typeof makeSdkStayResult>[]) {
 // Default search params
 // ---------------------------------------------------------------------------
 
+const defaultResolvedDestinations = [
+  { slug: 'lisbon', iata: 'LIS', name: 'Lisbon', country: 'Portugal', latitude: 38.7223, longitude: -9.1393, imageUrl: 'https://example.com/lisbon.jpg' },
+  { slug: 'barcelona', iata: 'BCN', name: 'Barcelona', country: 'Spain', latitude: 41.3874, longitude: 2.1686, imageUrl: 'https://example.com/barcelona.jpg' },
+];
+
 const defaultParams = {
   destinations: ['lisbon'],
   checkIn: '2025-06-15',
   checkOut: '2025-06-18',
   guests: 2,
   rooms: 1,
+  resolvedDestinations: defaultResolvedDestinations,
 };
 
 // ---------------------------------------------------------------------------

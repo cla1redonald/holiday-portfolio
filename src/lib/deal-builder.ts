@@ -1,8 +1,15 @@
-import { Deal, PriceBreakdown, FlightDetail, PriceContext, MarginConfig, SessionProfile, FlightOffer as FlightOfferType } from '@/types';
+import { Deal, PriceBreakdown, FlightDetail, PriceContext, SessionProfile, FlightOffer as FlightOfferType } from '@/types';
 import { FlightResult, StayResult } from './duffel-client';
-import { getDestinationImage, getCountry, lookupCity } from './iata-codes';
-import { getMarketPrice, getPricePercentile, logPriceObservations, SEED_PRICES, PriceObservation } from './price-intelligence';
+import { getMarketPrice, getPricePercentile, logPriceObservations, PriceObservation } from './price-intelligence';
 import { calculateDealPricing, isBelowMinimumFlightValue } from './pricing';
+import { getRate } from './fx-rates';
+
+export interface ResolvedDestinationMeta {
+  iata: string;
+  country: string;
+  imageUrl: string;
+  seedPriceGbp: number | null;
+}
 
 interface BundleParams {
   flights: FlightResult[];
@@ -13,49 +20,15 @@ interface BundleParams {
   origin?: string;
   sessionProfile?: SessionProfile | null;
   similarityScores?: Record<string, number>;
+  destinationTags?: Record<string, string[]>;
+  resolvedDestinations?: Record<string, ResolvedDestinationMeta>;
 }
 
-// Current margin config — passthrough until bed bank / affiliate is active
-const MARGIN_CONFIG: MarginConfig = {
-  mode: 'passthrough',
-  affiliateRate: 0,
-  markupRate: 0,
-  minMarginGBP: 0,
-  maxMarginGBP: 0,
-};
-
-const CURRENCY_RATES: Record<string, number> = { GBP: 1.0, EUR: 0.86, USD: 0.79 };
-
-function toGBP(amount: number, currency: string): { gbp: number; known: boolean } {
-  const rate = CURRENCY_RATES[currency];
-  if (rate != null) return { gbp: amount * rate, known: true };
-  console.warn(`[deal-builder] Unknown currency "${currency}", treating as GBP`);
-  return { gbp: amount, known: false };
+async function toGBP(amount: number, currency: string): Promise<{ gbp: number; known: boolean }> {
+  if (currency === 'GBP') return { gbp: amount, known: true };
+  const rate = await getRate(currency);
+  return { gbp: amount * rate, known: rate !== 1.0 };
 }
-
-// Which interests each destination is known for
-const DEST_STRENGTHS: Record<string, string[]> = {
-  lisbon: ['food', 'culture', 'nightlife', 'beach', 'budget'],
-  barcelona: ['food', 'architecture', 'beach', 'nightlife', 'art'],
-  amsterdam: ['culture', 'art', 'nightlife', 'architecture'],
-  rome: ['food', 'culture', 'historic', 'architecture', 'romantic'],
-  porto: ['food', 'culture', 'budget', 'romantic'],
-  prague: ['culture', 'architecture', 'budget', 'nightlife', 'historic'],
-  dubrovnik: ['beach', 'historic', 'romantic', 'culture'],
-  marrakech: ['food', 'culture', 'shopping', 'budget'],
-  paris: ['food', 'culture', 'romantic', 'art', 'architecture', 'luxury'],
-  berlin: ['nightlife', 'art', 'culture', 'budget'],
-  vienna: ['culture', 'architecture', 'food', 'luxury', 'romantic'],
-  budapest: ['budget', 'nightlife', 'culture', 'architecture'],
-  copenhagen: ['food', 'architecture', 'culture'],
-  athens: ['culture', 'historic', 'food', 'budget', 'beach'],
-  seville: ['food', 'culture', 'architecture', 'budget'],
-  florence: ['food', 'art', 'culture', 'architecture', 'romantic'],
-  edinburgh: ['culture', 'historic', 'food', 'nightlife'],
-  nice: ['beach', 'food', 'luxury', 'romantic'],
-  split: ['beach', 'historic', 'budget'],
-  malaga: ['beach', 'food', 'budget'],
-};
 
 // ---------------------------------------------------------------------------
 // 5-factor confidence scoring
@@ -64,7 +37,6 @@ const DEST_STRENGTHS: Record<string, string[]> = {
 interface ConfidenceInput {
   destination: string;
   totalPricePerPerson: number;
-  interests: string[];
   departureDate: string;
   priceContext: PriceContext;
   sessionProfile?: SessionProfile | null;
@@ -85,7 +57,7 @@ interface ConfidenceResult {
 }
 
 function calculateDealConfidence(input: ConfidenceInput): ConfidenceResult {
-  const { destination, totalPricePerPerson, interests, departureDate, priceContext, sessionProfile, similarityScores } = input;
+  const { destination, totalPricePerPerson, departureDate, priceContext, sessionProfile, similarityScores } = input;
   const reasons: string[] = [];
 
   // --- Factor 1: Price Percentile (0-25) ---
@@ -104,8 +76,8 @@ function calculateDealConfidence(input: ConfidenceInput): ConfidenceResult {
       pricePercentileScore = 3;
     }
   } else {
-    // Fallback: compare against seed/market price
-    const refPrice = priceContext.marketMedian ?? (SEED_PRICES[destination] ?? 350);
+    // Fallback: compare against market/seed price from Supabase
+    const refPrice = priceContext.marketMedian ?? 350;
     const savings = ((refPrice - totalPricePerPerson) / refPrice) * 100;
     if (savings > 20) {
       pricePercentileScore = 25;
@@ -122,40 +94,15 @@ function calculateDealConfidence(input: ConfidenceInput): ConfidenceResult {
   }
 
   // --- Factor 2: Interest Match (0-20) ---
+  // Purely semantic — cosine similarity from pgvector, no tag-based fallback.
+  // If embedding failed or destination not in DB, score is simply 0.
   let interestMatchScore = 0;
-
   if (similarityScores?.[destination] != null) {
-    // Semantic similarity scoring (cosine similarity 0-1 → 0-20 pts)
     const sim = similarityScores[destination];
     interestMatchScore = Math.round(sim * 20);
     if (sim >= 0.7) reasons.push('Strong match for your style');
     else if (sim >= 0.5) reasons.push('Good match for your preferences');
     else if (sim >= 0.3) reasons.push('Partial match');
-  } else {
-    // Tag-based fallback (when similarity scores unavailable)
-    const strengths = DEST_STRENGTHS[destination] ?? [];
-    const sessionInterests = sessionProfile?.interests ?? {};
-
-    let weightedMatchScore = 0;
-    const matchedInterests: string[] = [];
-    for (const interest of interests) {
-      if (strengths.includes(interest)) {
-        const sessionWeight = Math.min((sessionInterests[interest] ?? 1), 3);
-        weightedMatchScore += sessionWeight;
-        matchedInterests.push(interest);
-      }
-    }
-
-    if (weightedMatchScore >= 5) {
-      interestMatchScore = 20;
-      reasons.push(`Strong match for ${matchedInterests.slice(0, 2).join(' + ')}`);
-    } else if (weightedMatchScore >= 3) {
-      interestMatchScore = 15;
-      reasons.push(`Good match for ${matchedInterests[0] ?? 'your preferences'}`);
-    } else if (weightedMatchScore >= 1) {
-      interestMatchScore = 10;
-      reasons.push('Partial match for your style');
-    }
   }
 
   // --- Factor 3: Booking Lead Time (0-15) ---
@@ -202,20 +149,12 @@ function calculateDealConfidence(input: ConfidenceInput): ConfidenceResult {
   let sessionAlignmentScore = 0;
   if (sessionProfile && sessionProfile.searchCount > 1) {
     const destSearchCount = sessionProfile.destinations[destination] ?? 0;
-    const dismissed = sessionProfile.dismissedPreferences ?? [];
 
     // Boost destinations the user has searched for repeatedly
     if (destSearchCount >= 2) {
       sessionAlignmentScore += 8;
     } else if (destSearchCount >= 1) {
       sessionAlignmentScore += 4;
-    }
-
-    // Check if any of this destination's strengths were dismissed
-    const destStrengths = DEST_STRENGTHS[destination] ?? [];
-    const dismissedOverlap = destStrengths.filter((s: string) => dismissed.includes(s)).length;
-    if (dismissedOverlap > 0) {
-      sessionAlignmentScore = Math.max(0, sessionAlignmentScore - 5);
     }
 
     // Budget alignment
@@ -252,38 +191,44 @@ function calculateDealConfidence(input: ConfidenceInput): ConfidenceResult {
 }
 
 // ---------------------------------------------------------------------------
-// Margin calculation (legacy — kept for PriceBreakdown display)
-// ---------------------------------------------------------------------------
-
-function calculateMargin(subtotal: number, config: MarginConfig): number {
-  if (config.mode === 'passthrough') return 0;
-  if (config.mode === 'affiliate') return subtotal * config.affiliateRate;
-  // markup mode
-  const raw = subtotal * config.markupRate;
-  return Math.min(Math.max(raw, config.minMarginGBP), config.maxMarginGBP || Infinity);
-}
-
-// ---------------------------------------------------------------------------
 // Build deals (async — fetches market price data)
 // ---------------------------------------------------------------------------
 
 export async function buildDeals(params: BundleParams): Promise<Deal[]> {
-  const { flights, stays, interests, travellers, budgetPerPerson, origin, sessionProfile, similarityScores } = params;
+  const { flights, stays, travellers, budgetPerPerson, origin, sessionProfile, similarityScores, destinationTags, resolvedDestinations } = params;
   const deals: Deal[] = [];
   const currencyKnownByIndex = new Map<number, boolean>();
   const priceObservations: PriceObservation[] = [];
   const originCode = origin ?? 'LHR';
 
+  // Warm FX cache for all currencies we'll need
+  const currencies = new Set(flights.map(f => f.currency).concat(stays.map(s => s.currency)));
+  await Promise.all([...currencies].map(c => getRate(c)));
+
   // Prefetch all market data in parallel to avoid sequential Redis calls
   const routeKeys = flights.map((flight) => {
-    const cityInfo = lookupCity(flight.destination);
-    return cityInfo ? `${originCode}-${cityInfo.iata}` : `${originCode}-${flight.destination.toUpperCase()}`;
+    const resolved = resolvedDestinations?.[flight.destination];
+    const iata = resolved?.iata ?? flight.destination.toUpperCase();
+    return `${originCode}-${iata}`;
   });
   const marketDataPromises = routeKeys.map((key, i) => getMarketPrice(key, flights[i].nights));
   const marketDataResults = await Promise.all(marketDataPromises);
 
-  for (const [index, flight] of flights.entries()) {
-    // Find the best stay for this destination
+  // Pre-compute pricing for all flights so we can batch percentile lookups
+  interface FlightPricing {
+    stay: StayResult | undefined;
+    hotelName: string;
+    flightConv: { gbp: number; known: boolean };
+    hotelConv: { gbp: number; known: boolean };
+    currencyKnown: boolean;
+    dealPricing: ReturnType<typeof calculateDealPricing>;
+    subtotalPerPerson: number;
+    markupPerPerson: number;
+    totalPerPerson: number;
+    flightTotalGBP: number;
+  }
+
+  const flightPricings: FlightPricing[] = await Promise.all(flights.map(async (flight) => {
     const destStays = stays
       .filter((s) => s.destination === flight.destination)
       .sort((a, b) => {
@@ -294,38 +239,47 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
       });
 
     const stay = destStays[0];
-
-    const estimatedHotelPerNight = stay ? (stay.totalPrice / Math.max(flight.nights, 1)) : 65;
+    const seedPrice = resolvedDestinations?.[flight.destination]?.seedPriceGbp;
+    const defaultHotelPerNight = seedPrice ? Math.round((seedPrice * 0.5) / 3) : 65;
+    const estimatedHotelPerNight = stay ? (stay.totalPrice / Math.max(flight.nights, 1)) : defaultHotelPerNight;
     const hotelTotal = stay ? stay.totalPrice : estimatedHotelPerNight * flight.nights;
     const hotelName = stay ? stay.hotelName : 'Hotel TBC';
 
     const hotelPerPerson = hotelTotal / Math.max(travellers, 1);
-    const flightConv = toGBP(flight.pricePerPerson, flight.currency);
-    const hotelConv = stay ? toGBP(hotelPerPerson, stay.currency) : { gbp: hotelPerPerson, known: true };
+    const flightConv = await toGBP(flight.pricePerPerson, flight.currency);
+    const hotelConv = stay ? await toGBP(hotelPerPerson, stay.currency) : { gbp: hotelPerPerson, known: true };
     const currencyKnown = flightConv.known && hotelConv.known;
 
-    // --- Pricing engine: calculate costs, markup, and margin ---
     const flightTotalGBP = flightConv.gbp * Math.max(travellers, 1);
     const hotelTotalGBP = hotelConv.gbp * Math.max(travellers, 1);
     const isPackage = stay != null;
 
-    const dealPricing = calculateDealPricing({
-      flightTotalGBP,
-      hotelTotalGBP,
-      travellers,
-      isPackage,
-    });
-
-    // Use the customer-facing price (with markup applied)
+    const dealPricing = calculateDealPricing({ flightTotalGBP, hotelTotalGBP, travellers, isPackage });
     const subtotalPerPerson = flightConv.gbp + hotelConv.gbp;
-    const margin = calculateMargin(subtotalPerPerson, MARGIN_CONFIG);
-    const totalPerPerson = dealPricing.customerPricePerPerson;
+    const markupPerPerson = dealPricing.markupRevenue / Math.max(travellers, 1);
+
+    return {
+      stay, hotelName, flightConv, hotelConv, currencyKnown,
+      dealPricing, subtotalPerPerson, markupPerPerson,
+      totalPerPerson: dealPricing.customerPricePerPerson,
+      flightTotalGBP,
+    };
+  }));
+
+  // Batch all percentile lookups in parallel
+  const percentileResults = await Promise.all(
+    flights.map((flight, i) =>
+      getPricePercentile(flightPricings[i].totalPerPerson, routeKeys[i], flight.nights)
+    )
+  );
+
+  for (const [index, flight] of flights.entries()) {
+    const fp = flightPricings[index];
+    const { stay, hotelName, flightConv, hotelConv, currencyKnown, dealPricing, subtotalPerPerson, markupPerPerson, totalPerPerson, flightTotalGBP } = fp;
 
     const routeKey = routeKeys[index];
     const market = marketDataResults[index];
-
-    // Percentile needs totalPerPerson which we just computed
-    const percentile = await getPricePercentile(totalPerPerson, routeKey, flight.nights);
+    const percentile = percentileResults[index];
 
     const priceCtx: PriceContext = {
       marketMedian: market.stats?.median ?? market.price,
@@ -343,7 +297,6 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
     const { confidence, rationale } = calculateDealConfidence({
       destination: flight.destination,
       totalPricePerPerson: totalPerPerson,
-      interests,
       departureDate: flight.departureDate,
       priceContext: priceCtx,
       sessionProfile,
@@ -359,9 +312,8 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
       : rationale;
 
     const destName = flight.destination.charAt(0).toUpperCase() + flight.destination.slice(1);
-    const strengths = DEST_STRENGTHS[flight.destination] ?? [];
-    const matchingTags = interests.filter((i) => strengths.includes(i));
-    const tags = [...new Set([...matchingTags, ...strengths.slice(0, 3)])];
+    const destTags = destinationTags?.[flight.destination] ?? [];
+    const tags = destTags.slice(0, 5);
 
     const highlights: string[] = [];
     if (flight.airline) highlights.push(`${flight.airline} flights`);
@@ -382,8 +334,7 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
       hotelCost: Math.round(hotelConv.gbp),
       hotelEstimated: !stay,
       subtotal: Math.round(subtotalPerPerson),
-      margin: Math.round(margin),
-      marginType: MARGIN_CONFIG.mode === 'passthrough' ? 'none' : MARGIN_CONFIG.mode,
+      markup: Math.round(markupPerPerson),
       total: Math.round(totalPerPerson),
     };
 
@@ -403,20 +354,21 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
     };
 
     // Build alternative flights (exclude cheapest, convert to GBP)
-    const alternativeFlights: FlightOfferType[] = (flight.allOffers ?? [])
-      .slice(1, 4) // skip cheapest (index 0), take next 3
-      .map(offer => ({
+    const altOffers = (flight.allOffers ?? []).slice(1, 4);
+    const alternativeFlights: FlightOfferType[] = await Promise.all(
+      altOffers.map(async (offer) => ({
         ...offer,
-        pricePerPerson: Math.round(toGBP(offer.pricePerPerson, offer.currency).gbp),
-      }));
+        pricePerPerson: Math.round((await toGBP(offer.pricePerPerson, offer.currency)).gbp),
+      }))
+    );
 
     currencyKnownByIndex.set(deals.length, currencyKnown);
     deals.push({
       id: `duffel-${flight.destination}-${flight.departureDate}-${flight.airline.replace(/\s+/g, '')}-${index}`,
       destination: destName,
-      country: getCountry(flight.destination),
+      country: resolvedDestinations?.[flight.destination]?.country ?? '',
       hotel: hotelName,
-      image: stay?.photoUrl ?? getDestinationImage(flight.destination),
+      image: stay?.photoUrl ?? resolvedDestinations?.[flight.destination]?.imageUrl ?? 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&q=80',
       dates: `${formatDate(flight.departureDate)} – ${formatDate(flight.returnDate)}`,
       nights: flight.nights,
       pricePerPerson: Math.round(totalPerPerson),
@@ -437,7 +389,7 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
 
     // Collect price observations for logging
     for (const offer of (flight.allOffers ?? [])) {
-      const offerGbp = toGBP(offer.pricePerPerson, offer.currency);
+      const offerGbp = await toGBP(offer.pricePerPerson, offer.currency);
       priceObservations.push({
         route: routeKey,
         departureDate: flight.departureDate,

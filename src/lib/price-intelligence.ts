@@ -49,32 +49,6 @@ export interface MarketPrice {
   stats: RouteStats | null;
 }
 
-// ---------------------------------------------------------------------------
-// Seed prices — per-person for a 3-night trip (Q1 2026, GBP)
-// ---------------------------------------------------------------------------
-
-export const SEED_PRICES: Record<string, number> = {
-  lisbon: 320,
-  barcelona: 350,
-  amsterdam: 380,
-  rome: 340,
-  porto: 280,
-  prague: 260,
-  dubrovnik: 400,
-  marrakech: 300,
-  paris: 400,
-  berlin: 300,
-  vienna: 340,
-  budapest: 250,
-  copenhagen: 420,
-  athens: 310,
-  seville: 290,
-  florence: 360,
-  edinburgh: 280,
-  nice: 380,
-  split: 350,
-  malaga: 270,
-};
 
 // ---------------------------------------------------------------------------
 // Lazy Redis client
@@ -203,14 +177,6 @@ function round2(n: number): number {
 // Seed price lookup (Supabase-first, hardcoded fallback)
 // ---------------------------------------------------------------------------
 
-// Reverse IATA→city lookup for hardcoded seed price fallback
-const IATA_TO_CITY: Record<string, string> = {
-  lis: "lisbon", bcn: "barcelona", ams: "amsterdam", fco: "rome",
-  opo: "porto", prg: "prague", dbv: "dubrovnik", rak: "marrakech",
-  cdg: "paris", ber: "berlin", vie: "vienna", bud: "budapest",
-  cph: "copenhagen", ath: "athens", svq: "seville", flr: "florence",
-  edi: "edinburgh", nce: "nice", spu: "split", agp: "malaga",
-};
 
 async function getSeedPriceFromSupabase(iataOrSlug: string): Promise<number | null> {
   const supabase = getSupabase();
@@ -234,24 +200,9 @@ async function getSeedPriceFromSupabase(iataOrSlug: string): Promise<number | nu
 async function getSeedPrice(route: string, nights: number): Promise<number | null> {
   const dest = route.split("-").pop()?.toLowerCase() ?? "";
 
-  // 1. Try Supabase
+  // Try Supabase (447 destinations with seed_price_gbp)
   const dbPrice = await getSeedPriceFromSupabase(dest);
   if (dbPrice != null) return dbPrice * (nights / 3);
-
-  // Also try resolving IATA to slug for Supabase lookup
-  const cityName = IATA_TO_CITY[dest];
-  if (cityName) {
-    const dbPriceBySlug = await getSeedPriceFromSupabase(cityName);
-    if (dbPriceBySlug != null) return dbPriceBySlug * (nights / 3);
-  }
-
-  // 2. Hardcoded fallback
-  if (SEED_PRICES[dest] !== undefined) {
-    return SEED_PRICES[dest] * (nights / 3);
-  }
-  if (cityName && SEED_PRICES[cityName] !== undefined) {
-    return SEED_PRICES[cityName] * (nights / 3);
-  }
 
   return null;
 }
