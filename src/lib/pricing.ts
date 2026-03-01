@@ -38,6 +38,36 @@ export const PRICING_CONFIG = {
     perPassengerGBP: 2.50,
   },
 
+  // Ancillary pricing — Duffel charges £1.60 flat per ancillary.
+  // Only offer ancillaries where our markup exceeds the flat fee.
+  ancillaries: {
+    // Minimum ancillary price (GBP) worth offering to the customer.
+    // Below this, the £1.60 flat fee + payment processing eats the markup.
+    // At 10% markup: £1.60 / 0.10 = £16 breakeven. Use £20 for safety.
+    minViablePriceGBP: 20,
+
+    // Markup on ancillaries (higher than flights — customers expect ancillary markup)
+    markupPercentage: 0.10,        // 10% on ancillaries
+
+    // Ancillary categories and whether to offer them
+    categories: {
+      // Bags: typically £25–£50 each. At 10% markup on £30 bag = £3 revenue vs £1.60 cost. Profitable.
+      bags: { enabled: true, reason: 'Avg £30+, clears £1.60 flat fee easily' },
+
+      // Seat selection: typically £5–£20. At 10% markup on £15 = £1.50 revenue vs £1.60 cost. Loss-maker.
+      seatSelection: { enabled: false, reason: 'Avg £10–15, below £20 minimum — net loss after flat fee' },
+
+      // Extra legroom / preferred seats: typically £30–£60. Profitable.
+      premiumSeat: { enabled: true, reason: 'Avg £35+, comfortable margin above flat fee' },
+
+      // Meals: typically £5–£15. Loss-maker.
+      meals: { enabled: false, reason: 'Avg £8–12, well below £20 minimum' },
+
+      // Cancel for any reason / flexibility: typically £20–£50. Borderline to profitable.
+      flexibility: { enabled: true, reason: 'Avg £25+, marginal but improves customer experience' },
+    },
+  },
+
   // Minimum order thresholds (from breakeven analysis)
   thresholds: {
     // Below this flight value, we lose money even with markup
@@ -141,4 +171,86 @@ export function calculateDealPricing(params: {
 /** Returns true if a flight is below the minimum viable order value */
 export function isBelowMinimumFlightValue(flightTotalGBP: number): boolean {
   return flightTotalGBP < PRICING_CONFIG.thresholds.minFlightValueGBP;
+}
+
+
+// ---------------------------------------------------------------------------
+// Ancillary pricing
+// ---------------------------------------------------------------------------
+
+export type AncillaryCategory = keyof typeof PRICING_CONFIG.ancillaries.categories;
+
+export interface AncillaryPricing {
+  /** Whether we should offer this ancillary to the customer */
+  shouldOffer: boolean;
+  /** Why we are or aren't offering it */
+  reason: string;
+  /** What Duffel charges us (flat fee + payment processing) */
+  costToUs: number;
+  /** Our markup revenue on this ancillary */
+  markupRevenue: number;
+  /** Net margin per ancillary item. Negative = loss-maker */
+  netMargin: number;
+  /** Price the customer sees (cost + markup) */
+  customerPrice: number;
+}
+
+/**
+ * Determine whether an ancillary is worth offering and what to charge.
+ *
+ * @param category   - The type of ancillary (bags, seatSelection, etc.)
+ * @param priceGBP   - Duffel's price for this ancillary in GBP
+ */
+export function priceAncillary(
+  category: AncillaryCategory,
+  priceGBP: number,
+): AncillaryPricing {
+  const cfg = PRICING_CONFIG;
+  const categoryConfig = cfg.ancillaries.categories[category];
+
+  // If the category is disabled, don't offer regardless of price
+  if (!categoryConfig.enabled) {
+    return {
+      shouldOffer: false,
+      reason: categoryConfig.reason,
+      costToUs: 0,
+      markupRevenue: 0,
+      netMargin: 0,
+      customerPrice: 0,
+    };
+  }
+
+  // Cost to us: flat fee + payment processing on customer-facing price
+  const markup = priceGBP * cfg.ancillaries.markupPercentage;
+  const customerPrice = Math.ceil(priceGBP + markup);
+  const costToUs = cfg.duffel.ancillaryFlatFeeGBP + (customerPrice * cfg.payments.percentageFee);
+  const netMargin = markup - costToUs;
+
+  // Check against minimum viable price
+  const belowMinimum = priceGBP < cfg.ancillaries.minViablePriceGBP;
+
+  return {
+    shouldOffer: !belowMinimum && netMargin > 0,
+    reason: belowMinimum
+      ? `Price £${priceGBP} below £${cfg.ancillaries.minViablePriceGBP} minimum`
+      : netMargin > 0
+        ? `+£${netMargin.toFixed(2)} margin`
+        : `Loss of £${Math.abs(netMargin).toFixed(2)} per item`,
+    costToUs,
+    markupRevenue: markup,
+    netMargin,
+    customerPrice,
+  };
+}
+
+/**
+ * Filter a list of ancillaries down to only the ones worth offering.
+ * Use this when rendering the ancillaries component to hide loss-makers.
+ */
+export function filterViableAncillaries(
+  ancillaries: Array<{ category: AncillaryCategory; priceGBP: number }>,
+): Array<{ category: AncillaryCategory; priceGBP: number; pricing: AncillaryPricing }> {
+  return ancillaries
+    .map((a) => ({ ...a, pricing: priceAncillary(a.category, a.priceGBP) }))
+    .filter((a) => a.pricing.shouldOffer);
 }
