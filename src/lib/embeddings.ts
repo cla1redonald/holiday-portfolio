@@ -22,7 +22,7 @@ export async function embedText(text: string): Promise<number[] | null> {
 
   try {
     const controller = new AbortController();
-    const timer = setTimeout(() => controller.abort(), 2000);
+    const timer = setTimeout(() => controller.abort(), 5000);
 
     const response = await openai.embeddings.create(
       { model: 'text-embedding-3-small', input: text },
@@ -39,11 +39,12 @@ export async function embedText(text: string): Promise<number[] | null> {
   }
 }
 
-export function buildQueryText(intent: ParsedIntent): string {
+export function buildQueryText(intent: ParsedIntent, rawQuery?: string): string {
   const parts: string[] = [];
 
-  if (intent.destinations.length > 0) {
-    parts.push(`Destinations like ${intent.destinations.join(', ')}.`);
+  // Include the raw user query for better semantic matching
+  if (rawQuery) {
+    parts.push(rawQuery.trim() + '.');
   }
 
   if (intent.interests.length > 0) {

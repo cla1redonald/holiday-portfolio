@@ -142,7 +142,7 @@ export async function POST(request: NextRequest) {
     const intent = await parseSearchQuery(query);
 
     // Step 1.5: Semantic destination matching
-    const queryText = buildQueryText(intent);
+    const queryText = buildQueryText(intent, query);
     const queryEmbedding = await embedText(queryText);
     let destinations = intent.destinations;
     let similarityMap: Record<string, number> = {};
@@ -151,11 +151,12 @@ export async function POST(request: NextRequest) {
 
     if (queryEmbedding) {
       const matches = await findSimilarDestinations(queryEmbedding, {
-        limit: 5,
+        limit: 8,
         budgetPerPerson: intent.budgetPerPerson,
       });
       if (matches.length > 0) {
-        const top = matches.slice(0, 3);
+        // Take top 5 for flight search (more chances for Duffel to find routes)
+        const top = matches.slice(0, 5);
         destinations = top.map(m => m.slug);
         similarityMap = Object.fromEntries(matches.map(m => [m.slug, m.similarity]));
         resolvedDestinations = top.map(m => ({

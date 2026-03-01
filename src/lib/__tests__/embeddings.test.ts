@@ -68,15 +68,31 @@ describe('embeddings', () => {
         ],
       };
 
-      const text = buildQueryText(intent);
-      expect(text).toContain('lisbon');
-      expect(text).toContain('barcelona');
+      const text = buildQueryText(intent, 'warm food trip to lisbon and barcelona');
+      expect(text).toContain('warm food trip'); // raw query included
       expect(text).toContain('food');
       expect(text).toContain('culture');
       expect(text).toContain('300');
       expect(text).toContain('3-night');
       expect(text).toContain('group of 2');
       expect(text).toContain('Warm weather');
+    });
+
+    it('works without raw query', () => {
+      const intent: ParsedIntent = {
+        destinations: ['rome'],
+        originAirport: null,
+        budgetPerPerson: null,
+        departureWindow: null,
+        nights: 4,
+        interests: ['historic'],
+        travellers: 1,
+        preferences: [],
+      };
+
+      const text = buildQueryText(intent);
+      expect(text).toContain('historic');
+      expect(text).toContain('4-night');
     });
 
     it('returns default string for empty intent', () => {

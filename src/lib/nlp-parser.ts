@@ -27,16 +27,17 @@ Return ONLY valid JSON matching this schema:
   "preferenceLabels": [{"label": string, "confidence": number, "icon": string}] // Human-readable preference tags inferred from the query, with confidence 0-1 and an emoji icon
 }
 
-Known cities: lisbon, barcelona, amsterdam, rome, porto, prague, dubrovnik, marrakech, paris, berlin, vienna, budapest, copenhagen, athens, seville, florence, edinburgh, nice, split, malaga
+Known cities: barcelona, amsterdam, rome, prague, dubrovnik, marrakech, paris, berlin, vienna, budapest, copenhagen, athens, seville, florence, edinburgh, nice, split, malaga, lisbon, porto, istanbul, krakow, reykjavik, stockholm, tallinn, riga, tbilisi, sofia, zagreb, palma-de-mallorca, tenerife, rhodes, santorini, naples, bologna, lyon, bordeaux
 
 Today's date: ${new Date().toISOString().split('T')[0]}
 
 Rules:
 - Always return 2-6 destinations, even if the user doesn't name any
-- For vague queries like "somewhere nice", pick diverse popular destinations
-- For "warm" → Mediterranean/Southern Europe cities
-- For "cheap" → Porto, Prague, Budapest, Marrakech, Athens
-- For "food" → Lisbon, Barcelona, Rome, Florence, Marrakech
+- For vague queries like "somewhere nice", pick diverse popular destinations from DIFFERENT countries
+- For "warm" → Mediterranean/Southern Europe cities (barcelona, athens, malaga, split, rhodes)
+- For "cheap" → Prague, Budapest, Krakow, Athens, Sofia
+- For "food" → Barcelona, Rome, Florence, Marrakech, Istanbul
+- IMPORTANT: Always pick destinations from at least 3 different countries for diversity
 - Match the user's language and intent naturally
 - Do NOT include markdown formatting or code blocks — return raw JSON only`;
 
@@ -91,7 +92,7 @@ export async function parseSearchQuery(query: string): Promise<ParsedIntent> {
 
     const destinations = (parsed.destinations ?? [])
       .filter((d: unknown) => typeof d === 'string' && d.length > 0 && d.length < 100)
-      .slice(0, 3);
+      .slice(0, 5);
     const travellers = Math.min(Math.max(parsed.travellers ?? 2, 1), 9);
     const nights = Math.min(Math.max(parsed.nights ?? 3, 1), 30);
 
@@ -110,7 +111,7 @@ export async function parseSearchQuery(query: string): Promise<ParsedIntent> {
   } catch {
     // If Haiku returns malformed JSON, return a sensible default
     return {
-      destinations: ['lisbon', 'barcelona', 'amsterdam', 'rome'],
+      destinations: ['barcelona', 'rome', 'prague', 'athens'],
       originAirport: null,
       budgetPerPerson: null,
       departureWindow: null,

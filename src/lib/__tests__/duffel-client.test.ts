@@ -340,20 +340,30 @@ describe('searchStays — Duffel SDK integration', () => {
   });
 
   // -----------------------------------------------------------------------
-  // 14. Destinations capped at 3
+  // 14. Destinations capped at 5
   // -----------------------------------------------------------------------
-  it('caps destinations to first 3', async () => {
+  it('caps destinations to first 5', async () => {
     mockStaysSearch.mockResolvedValue(
       makeSdkResponse([makeSdkStayResult()]),
     );
 
+    const sixResolved = [
+      { slug: 'lisbon', iata: 'LIS', name: 'Lisbon', country: 'Portugal', latitude: 38.7, longitude: -9.1, imageUrl: '' },
+      { slug: 'barcelona', iata: 'BCN', name: 'Barcelona', country: 'Spain', latitude: 41.4, longitude: 2.2, imageUrl: '' },
+      { slug: 'rome', iata: 'FCO', name: 'Rome', country: 'Italy', latitude: 41.9, longitude: 12.5, imageUrl: '' },
+      { slug: 'prague', iata: 'PRG', name: 'Prague', country: 'Czech Republic', latitude: 50.1, longitude: 14.4, imageUrl: '' },
+      { slug: 'athens', iata: 'ATH', name: 'Athens', country: 'Greece', latitude: 37.9, longitude: 23.7, imageUrl: '' },
+      { slug: 'paris', iata: 'CDG', name: 'Paris', country: 'France', latitude: 48.9, longitude: 2.3, imageUrl: '' },
+    ];
+
     await searchStays({
       ...defaultParams,
-      destinations: ['lisbon', 'barcelona', 'lisbon', 'barcelona'],
+      destinations: ['lisbon', 'barcelona', 'rome', 'prague', 'athens', 'paris'],
+      resolvedDestinations: sixResolved,
     });
 
-    // Only 3 calls, not 4
-    expect(mockStaysSearch).toHaveBeenCalledTimes(3);
+    // Only 5 calls, not 6
+    expect(mockStaysSearch).toHaveBeenCalledTimes(5);
   });
 
   // -----------------------------------------------------------------------

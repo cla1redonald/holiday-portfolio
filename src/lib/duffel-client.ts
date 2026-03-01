@@ -189,8 +189,8 @@ export async function searchFlights(params: {
     type: 'adult' as const,
   }));
 
-  // Search flights to each destination in parallel (max 3), with per-search timeout
-  const searches = params.destinations.slice(0, 3).map((dest) => withTimeout((async () => {
+  // Search flights to each destination in parallel (max 5), with per-search timeout
+  const searches = params.destinations.slice(0, 5).map((dest) => withTimeout((async () => {
     const resolved = resolvedMap.get(dest) ?? await resolveDestination(dest);
     if (!resolved) return null;
     const cityInfo = { iata: resolved.iata, latitude: resolved.latitude, longitude: resolved.longitude };
@@ -389,7 +389,7 @@ export async function searchStays(params: {
       (1000 * 60 * 60 * 24)
   );
 
-  const searches = params.destinations.slice(0, 3).map((dest) =>
+  const searches = params.destinations.slice(0, 5).map((dest) =>
     withTimeout(
       (async () => {
         const resolved = resolvedMap.get(dest) ?? await resolveDestination(dest);
