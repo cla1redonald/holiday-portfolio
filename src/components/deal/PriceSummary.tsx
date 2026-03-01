@@ -4,6 +4,7 @@ import { useState } from 'react';
 import type { Deal, DealAncillary } from '@/types';
 import AncillarySelector from './AncillarySelector';
 import ProTeaser from './ProTeaser';
+import PriceSparkline from '../demo/PriceSparkline';
 import { trackBreakdownClick } from '@/lib/session-preferences';
 
 interface PriceSummaryProps {
@@ -56,6 +57,19 @@ export default function PriceSummary({ deal, onBook }: PriceSummaryProps) {
           )}
         </div>
         <p className="text-secondary text-sm mt-0.5">per person</p>
+        {deal.priceContext?.priceHistory && deal.priceContext.priceHistory.length >= 2 && (
+          <div className="mt-2 flex items-center gap-2">
+            <PriceSparkline
+              history={deal.priceContext.priceHistory}
+              currentPrice={deal.pricePerPerson}
+              width={120}
+              height={32}
+            />
+            <span className="text-[11px] text-secondary">
+              {deal.priceContext.priceHistory.length}-day price trend
+            </span>
+          </div>
+        )}
       </div>
 
       {/* Expandable breakdown */}

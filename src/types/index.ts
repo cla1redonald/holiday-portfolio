@@ -81,12 +81,18 @@ export interface FlightDetail {
   totalDuration: number;      // minutes
 }
 
+export interface PricePoint {
+  date: string;   // YYYY-MM-DD
+  price: number;  // GBP per person
+}
+
 export interface PriceContext {
   marketMedian: number | null;
   percentile: number | null;    // 0-100, where this price sits in observed distribution
   sampleCount: number;
   trend: 'rising' | 'falling' | 'stable' | null;
   source: 'observed' | 'seed';
+  priceHistory?: PricePoint[];  // recent daily price points for sparkline
 }
 
 export interface SessionProfile {

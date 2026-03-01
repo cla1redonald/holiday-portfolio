@@ -297,6 +297,48 @@ export async function getMarketPrice(
 }
 
 /**
+ * Get daily average prices for sparkline display.
+ * Returns up to 14 most recent daily averages.
+ */
+export async function getPriceHistory(
+  route: string,
+  nights: number,
+): Promise<{ date: string; price: number }[]> {
+  try {
+    const redis = getRedis();
+    if (!redis) return [];
+
+    const pk = priceKey(route, nights);
+    const observations = await redis.get<PriceObservation[]>(pk);
+
+    if (!Array.isArray(observations) || observations.length < 2) {
+      return [];
+    }
+
+    // Group by date, compute daily average
+    const byDate = new Map<string, number[]>();
+    for (const o of observations) {
+      const date = o.observedAt.slice(0, 10); // YYYY-MM-DD
+      const group = byDate.get(date) ?? [];
+      group.push(o.pricePerPerson);
+      byDate.set(date, group);
+    }
+
+    const dailyAvg = Array.from(byDate.entries())
+      .map(([date, prices]) => ({
+        date,
+        price: round2(prices.reduce((a, b) => a + b, 0) / prices.length),
+      }))
+      .sort((a, b) => a.date.localeCompare(b.date))
+      .slice(-14); // last 14 days
+
+    return dailyAvg;
+  } catch {
+    return [];
+  }
+}
+
+/**
  * Given a price, return what percentile it sits at for a route/nights combo.
  * 0 = cheapest ever seen, 100 = most expensive.
  * Returns null if insufficient data.

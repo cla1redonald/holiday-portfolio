@@ -1,6 +1,6 @@
 import { Deal, DealAncillary, PriceBreakdown, FlightDetail, PriceContext, SessionProfile, FlightOffer as FlightOfferType } from '@/types';
 import { FlightResult, StayResult } from './duffel-client';
-import { getMarketPrice, getPricePercentile, logPriceObservations, PriceObservation } from './price-intelligence';
+import { getMarketPrice, getPricePercentile, getPriceHistory, logPriceObservations, PriceObservation } from './price-intelligence';
 import { calculateDealPricing, isBelowMinimumFlightValue, filterViableAncillaries, AncillaryCategory } from './pricing';
 import { getRate } from './fx-rates';
 
@@ -267,12 +267,19 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
     };
   }));
 
-  // Batch all percentile lookups in parallel
-  const percentileResults = await Promise.all(
-    flights.map((flight, i) =>
-      getPricePercentile(flightPricings[i].totalPerPerson, routeKeys[i], flight.nights)
-    )
-  );
+  // Batch all percentile + price history lookups in parallel
+  const [percentileResults, priceHistoryResults] = await Promise.all([
+    Promise.all(
+      flights.map((flight, i) =>
+        getPricePercentile(flightPricings[i].totalPerPerson, routeKeys[i], flight.nights)
+      )
+    ),
+    Promise.all(
+      flights.map((flight) =>
+        getPriceHistory(routeKeys[flights.indexOf(flight)], flight.nights)
+      )
+    ),
+  ]);
 
   for (const [index, flight] of flights.entries()) {
     const fp = flightPricings[index];
@@ -281,6 +288,7 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
     const routeKey = routeKeys[index];
     const market = marketDataResults[index];
     const percentile = percentileResults[index];
+    const history = priceHistoryResults[index];
 
     const priceCtx: PriceContext = {
       marketMedian: market.stats?.median ?? market.price,
@@ -288,6 +296,7 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
       sampleCount: market.sampleCount,
       trend: market.trend,
       source: market.source,
+      priceHistory: history.length >= 2 ? history : undefined,
     };
 
     // Build originalPrice (market reference)

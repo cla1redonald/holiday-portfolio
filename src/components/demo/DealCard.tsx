@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation';
 import { Deal } from '@/types';
 import { setSelectedDeal } from '@/lib/deal-store';
 import { trackBreakdownClick } from '@/lib/session-preferences';
+import PriceSparkline from './PriceSparkline';
 
 interface DealCardProps {
   deal: Deal;
@@ -208,14 +209,22 @@ export default function DealCard({ deal }: DealCardProps) {
 
         {/* Price */}
         <div className="mt-auto pt-2 border-t border-border/40">
-          <div className="flex items-baseline gap-2">
-            <span className="font-mono text-2xl font-bold text-accent">
-              £{deal.pricePerPerson}
-            </span>
-            {savingsPct > 0 && (
-              <span className="text-secondary/50 text-sm font-mono line-through">
-                £{deal.originalPrice}
+          <div className="flex items-center gap-2">
+            <div className="flex items-baseline gap-2">
+              <span className="font-mono text-2xl font-bold text-accent">
+                £{deal.pricePerPerson}
               </span>
+              {savingsPct > 0 && (
+                <span className="text-secondary/50 text-sm font-mono line-through">
+                  £{deal.originalPrice}
+                </span>
+              )}
+            </div>
+            {deal.priceContext?.priceHistory && deal.priceContext.priceHistory.length >= 2 && (
+              <PriceSparkline
+                history={deal.priceContext.priceHistory}
+                currentPrice={deal.pricePerPerson}
+              />
             )}
             <span className="text-secondary text-xs ml-auto">per person</span>
           </div>

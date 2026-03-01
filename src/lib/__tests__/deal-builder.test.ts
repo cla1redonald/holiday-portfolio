@@ -12,11 +12,13 @@ vi.mock('../fx-rates', () => ({
 
 const mockGetMarketPrice = vi.fn();
 const mockGetPricePercentile = vi.fn();
+const mockGetPriceHistory = vi.fn();
 const mockLogPriceObservations = vi.fn();
 
 vi.mock('../price-intelligence', () => ({
   getMarketPrice: (...args: unknown[]) => mockGetMarketPrice(...args),
   getPricePercentile: (...args: unknown[]) => mockGetPricePercentile(...args),
+  getPriceHistory: (...args: unknown[]) => mockGetPriceHistory(...args),
   logPriceObservations: (...args: unknown[]) => mockLogPriceObservations(...args),
 }));
 
@@ -126,6 +128,7 @@ describe('deal-builder — buildDeals', () => {
     });
 
     mockGetPricePercentile.mockResolvedValue(null);
+    mockGetPriceHistory.mockResolvedValue([]);
     mockLogPriceObservations.mockResolvedValue(undefined);
   });
 
