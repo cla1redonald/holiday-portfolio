@@ -243,8 +243,9 @@ export function priceAncillary(
   }
 
   // Cost to us: flat fee + payment processing on customer-facing price
-  const markup = priceGBP * cfg.ancillaries.markupPercentage;
-  const customerPrice = Math.ceil(priceGBP + markup);
+  const customerPrice = Math.ceil(priceGBP * (1 + cfg.ancillaries.markupPercentage));
+  // Derive actual markup from the rounded price to avoid understating margin
+  const markup = customerPrice - priceGBP;
   const costToUs = cfg.duffel.ancillaryFlatFeeGBP + (customerPrice * cfg.payments.percentageFee);
   const netMargin = markup - costToUs;
 

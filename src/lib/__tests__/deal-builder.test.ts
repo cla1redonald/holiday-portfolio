@@ -79,12 +79,14 @@ describe('buildDeals — pricing integration', () => {
   });
 
   it('sorts viable deals above loss-makers', () => {
+    // £25pp flight with no stay → flight-only, well below £100 minimum → loss-maker
     const cheapFlight: FlightResult = {
       ...baseFlight,
       destination: 'budapest',
       pricePerPerson: 25,
     };
 
+    // £200pp flight with a real stay → healthy package → profitable
     const goodFlight: FlightResult = {
       ...baseFlight,
       destination: 'lisbon',
@@ -104,11 +106,11 @@ describe('buildDeals — pricing integration', () => {
       budgetPerPerson: null,
     });
 
-    // If one is a loss-maker and one is not, the viable one should come first
-    if (deals.length === 2 && deals[0].isLossMaker !== deals[1].isLossMaker) {
-      expect(deals[0].isLossMaker).toBe(false);
-      expect(deals[1].isLossMaker).toBe(true);
-    }
+    expect(deals).toHaveLength(2);
+    // The profitable deal (lisbon) should sort before the loss-maker (budapest)
+    expect(deals[0].destination).toBe('Lisbon');
+    expect(deals[0].isLossMaker).toBe(false);
+    expect(deals[1].destination).toBe('Budapest');
   });
 
   it('includes netMargin and isLossMaker in deal output', () => {

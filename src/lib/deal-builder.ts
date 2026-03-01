@@ -131,7 +131,9 @@ export function buildDeals({ flights, stays, interests, travellers, budgetPerPer
     // --- Pricing engine: calculate costs, markup, and margin ---
     const flightTotalGBP = flightConv.gbp * Math.max(travellers, 1);
     const hotelTotalGBP = hotelConv.gbp * Math.max(travellers, 1);
-    const isPackage = hotelTotalGBP > 0;
+    // Only treat as a package (triggering ATOL) when we have a real stay match,
+    // not an estimated hotel placeholder
+    const isPackage = stay != null;
 
     const pricing = calculateDealPricing({
       flightTotalGBP,
