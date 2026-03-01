@@ -7,6 +7,26 @@ interface DealCardProps {
   deal: Deal;
 }
 
+/** Format total minutes as "Xh Ym" */
+function formatDuration(minutes: number): string {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return m > 0 ? `${h}h ${m}m` : `${h}h`;
+}
+
+/** Format stops count as human-readable text */
+function formatStops(stops: number): string {
+  if (stops === 0) return 'Direct';
+  if (stops === 1) return '1 stop';
+  return `${stops} stops`;
+}
+
+/** Calculate hours remaining until an ISO date string */
+function hoursUntil(isoDate: string): number {
+  const diff = new Date(isoDate).getTime() - Date.now();
+  return Math.floor(diff / (1000 * 60 * 60));
+}
+
 function ConfidenceBadge({ score }: { score: number }) {
   const color =
     score >= 85 ? 'bg-teal/10 text-teal' :
@@ -30,8 +50,23 @@ export default function DealCard({ deal }: DealCardProps) {
     document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  // Extract airline from highlights if present
+  // Extract airline from highlights if present (fallback for deals without flight data)
   const airlineHighlight = deal.highlights.find(h => h.toLowerCase().includes('flights'));
+
+  // Price context badge logic
+  const showPercentileBadge =
+    deal.priceContext &&
+    deal.priceContext.source !== 'seed' &&
+    deal.priceContext.percentile !== null &&
+    deal.priceContext.percentile <= 25;
+
+  const showTrendWarning =
+    deal.priceContext &&
+    deal.priceContext.trend === 'rising';
+
+  // Offer expiry logic
+  const expiryHours = deal.offerExpiresAt ? hoursUntil(deal.offerExpiresAt) : null;
+  const showExpiry = expiryHours !== null && expiryHours > 0 && expiryHours < 48;
 
   return (
     <article
@@ -50,12 +85,33 @@ export default function DealCard({ deal }: DealCardProps) {
         {/* Gradient overlay */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/30 via-transparent to-transparent" />
 
-        {/* Savings badge */}
-        {savingsPct > 0 && (
+        {/* Price context badge (replaces savings badge when available) */}
+        {showPercentileBadge ? (
+          <div className="absolute top-3 left-3 flex items-center gap-1.5">
+            <div className="bg-accent text-white text-xs font-bold font-display px-2.5 py-1 rounded-lg">
+              Top {deal.priceContext!.percentile}% cheapest
+            </div>
+            {showTrendWarning && (
+              <div className="bg-amber-500 text-white text-xs font-bold font-display px-2 py-1 rounded-lg flex items-center gap-0.5">
+                <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+                </svg>
+                Rising
+              </div>
+            )}
+          </div>
+        ) : showTrendWarning && !savingsPct ? (
+          <div className="absolute top-3 left-3 bg-amber-500 text-white text-xs font-bold font-display px-2.5 py-1 rounded-lg flex items-center gap-1">
+            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 19.5l15-15m0 0H8.25m11.25 0v11.25" />
+            </svg>
+            Prices rising
+          </div>
+        ) : savingsPct > 0 ? (
           <div className="absolute top-3 left-3 bg-accent text-white text-xs font-bold font-display px-2.5 py-1 rounded-lg">
             {savingsPct}% below avg
           </div>
-        )}
+        ) : null}
 
         {/* Destination overlay */}
         <div className="absolute bottom-3 left-3 right-3">
@@ -78,14 +134,44 @@ export default function DealCard({ deal }: DealCardProps) {
 
         {/* Flight info + dates */}
         <div className="flex flex-col gap-1.5 text-sm text-secondary">
-          {airlineHighlight && (
+          {deal.flight ? (
+            <>
+              <span className="flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 flex-shrink-0 text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                </svg>
+                {deal.flight.airlineLogo && (
+                  <Image
+                    src={deal.flight.airlineLogo}
+                    alt={deal.flight.airline}
+                    width={16}
+                    height={16}
+                    className="rounded-sm"
+                  />
+                )}
+                {deal.flight.airline} · {formatStops(deal.flight.stops)} · {formatDuration(deal.flight.totalDuration)}
+              </span>
+
+              {/* Alternative flights */}
+              {deal.alternativeFlights && deal.alternativeFlights.length > 0 && (
+                <p className="text-[11px] text-secondary/50 pl-5">
+                  Also: {deal.alternativeFlights.slice(0, 2).map((alt, i) => (
+                    <span key={alt.offerId}>
+                      {i > 0 && ', '}
+                      {alt.airline} £{alt.pricePerPerson}
+                    </span>
+                  ))}
+                </p>
+              )}
+            </>
+          ) : airlineHighlight ? (
             <span className="flex items-center gap-1.5">
               <svg className="w-3.5 h-3.5 flex-shrink-0 text-teal" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
               </svg>
               {airlineHighlight}
             </span>
-          )}
+          ) : null}
           <span className="flex items-center gap-1.5">
             <svg className="w-3.5 h-3.5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 9v7.5" />
@@ -107,6 +193,21 @@ export default function DealCard({ deal }: DealCardProps) {
             )}
             <span className="text-secondary text-xs ml-auto">per person</span>
           </div>
+
+          {/* Price breakdown */}
+          {deal.pricing && (
+            <p className="text-[11px] text-secondary/60 mt-0.5">
+              Flights £{deal.pricing.flightCost} · Hotel {deal.pricing.hotelEstimated ? '~' : ''}£{deal.pricing.hotelCost}
+            </p>
+          )}
+
+          {/* Offer expiry */}
+          {showExpiry && (
+            <p className="text-[11px] text-amber-600 mt-0.5">
+              Price held for {expiryHours}h
+            </p>
+          )}
+
           <p className="text-[11px] text-secondary/60 mt-1">{deal.confidenceRationale}</p>
         </div>
 

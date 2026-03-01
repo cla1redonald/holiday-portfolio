@@ -135,13 +135,15 @@ export async function POST(request: NextRequest) {
     ]);
     console.log('[search] Flights:', flights.length, 'results. Stays:', stays.length, 'results');
 
-    // Step 4: Bundle into deals
-    const deals = buildDeals({
+    // Step 4: Bundle into deals (async — fetches market price data)
+    const deals = await buildDeals({
       flights,
       stays,
       interests: intent.interests,
       travellers: intent.travellers,
       budgetPerPerson: intent.budgetPerPerson,
+      origin: intent.originAirport ?? undefined,
+      sessionProfile: body.sessionProfile ?? null,
     });
     console.log('[search] Built', deals.length, 'deals');
 

@@ -13,6 +13,19 @@ function getDuffel(): Duffel {
   }
 }
 
+/** Parse an ISO 8601 duration string (e.g. "PT2H30M") into total minutes */
+function parseISODuration(iso: string | undefined | null): number {
+  if (!iso) return 0;
+  const match = iso.match(/PT(?:(\d+)H)?(?:(\d+)M)?/);
+  if (!match) return 0;
+  return (parseInt(match[1] ?? '0', 10) * 60) + parseInt(match[2] ?? '0', 10);
+}
+
+/** Calculate total duration in minutes from an array of segments */
+function calcSegmentsDuration(segments: Array<{ duration?: string | null }>): number {
+  return segments.reduce((sum, seg) => sum + parseISODuration((seg as Record<string, unknown>).duration as string | undefined), 0);
+}
+
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   let timer: ReturnType<typeof setTimeout>;
   return Promise.race([
@@ -22,7 +35,18 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
 }
 
 
+export interface FlightOffer {
+  offerId: string;
+  pricePerPerson: number;
+  currency: string;
+  airline: string;
+  airlineLogo: string | null;
+  stops: number;
+  totalDuration: number;
+}
+
 export interface FlightResult {
+  // --- existing fields ---
   destination: string;
   airline: string;
   departureDate: string;
@@ -30,6 +54,20 @@ export interface FlightResult {
   pricePerPerson: number;
   currency: string;
   nights: number;
+
+  // --- new fields ---
+  offerId: string;
+  offerExpiresAt: string;
+  cabinClass: string;
+  stops: number;
+  outboundDeparture: string;
+  outboundArrival: string;
+  returnDeparture: string;
+  returnArrival: string;
+  baggageIncluded: boolean;
+  airlineLogo: string | null;
+  totalDuration: number;
+  allOffers: FlightOffer[];
 }
 
 export interface StayResult {
@@ -112,14 +150,81 @@ export async function searchFlights(params: {
           (1000 * 60 * 60 * 24)
       );
 
+      // Use type assertions for nested Duffel fields the SDK types may not fully expose
+      const cheapestAny = cheapest as unknown as Record<string, unknown>;
+      const slices = (cheapestAny.slices ?? []) as Array<{
+        segments: Array<{
+          departing_at: string;
+          arriving_at: string;
+          duration?: string | null;
+        }>;
+      }>;
+
+      const outboundSlice = slices[0];
+      const returnSlice = slices[1];
+
+      const outboundSegments = outboundSlice?.segments ?? [];
+      const returnSegments = returnSlice?.segments ?? [];
+
+      const stops = outboundSegments.length > 0 ? outboundSegments.length - 1 : 0;
+
+      const outboundDeparture = outboundSegments[0]?.departing_at ?? params.departureDate;
+      const outboundArrival = outboundSegments[outboundSegments.length - 1]?.arriving_at ?? params.departureDate;
+      const returnDeparture = returnSegments[0]?.departing_at ?? params.returnDate;
+      const returnArrival = returnSegments[returnSegments.length - 1]?.arriving_at ?? params.returnDate;
+
+      const allSegments = [...outboundSegments, ...returnSegments];
+      const totalDuration = calcSegmentsDuration(allSegments);
+
+      const offerPassengers = (cheapestAny.passengers ?? []) as Array<{
+        baggages?: Array<unknown>;
+      }>;
+      const baggageIncluded = (offerPassengers[0]?.baggages?.length ?? 0) > 0;
+
+      const owner = cheapestAny.owner as { name?: string; logo_symbol_url?: string | null } | undefined;
+      const airlineLogo = owner?.logo_symbol_url ?? null;
+
+      // Build allOffers from all returned offers (up to 5)
+      const allOffers: FlightOffer[] = offers.map((offer) => {
+        const offerAny = offer as unknown as Record<string, unknown>;
+        const offerSlices = (offerAny.slices ?? []) as Array<{
+          segments: Array<{ duration?: string | null }>;
+        }>;
+        const offerOutbound = offerSlices[0]?.segments ?? [];
+        const offerReturn = offerSlices[1]?.segments ?? [];
+        const offerOwner = offerAny.owner as { name?: string; logo_symbol_url?: string | null } | undefined;
+
+        return {
+          offerId: offer.id,
+          pricePerPerson: parseFloat(offer.total_amount) / params.travellers,
+          currency: offer.total_currency,
+          airline: offerOwner?.name ?? 'Airline',
+          airlineLogo: offerOwner?.logo_symbol_url ?? null,
+          stops: offerOutbound.length > 0 ? offerOutbound.length - 1 : 0,
+          totalDuration: calcSegmentsDuration([...offerOutbound, ...offerReturn]),
+        };
+      });
+
       return {
         destination: dest,
-        airline: cheapest.owner?.name ?? 'Airline',
+        airline: owner?.name ?? 'Airline',
         departureDate: params.departureDate,
         returnDate: params.returnDate,
         pricePerPerson: parseFloat(cheapest.total_amount) / params.travellers,
         currency: cheapest.total_currency,
         nights,
+        offerId: cheapest.id,
+        offerExpiresAt: (cheapestAny.expires_at as string) ?? '',
+        cabinClass: 'economy',
+        stops,
+        outboundDeparture,
+        outboundArrival,
+        returnDeparture,
+        returnArrival,
+        baggageIncluded,
+        airlineLogo,
+        totalDuration,
+        allOffers,
       };
     } catch (err: unknown) {
       const duffelErr = err as { errors?: Array<{ message: string; title: string }> };
