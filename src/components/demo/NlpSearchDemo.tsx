@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Deal, SearchResult, SessionProfile, UserPreference } from '@/types';
-import { searchDeals } from '@/lib/search-engine';
 import { getSessionProfile, updateSessionProfile, dismissPreference } from '@/lib/session-preferences';
 import SearchInput from './SearchInput';
 import SuggestedQueries from './SuggestedQueries';
@@ -23,9 +22,6 @@ async function searchViaApi(query: string, sessionProfile: SessionProfile | null
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    if (data.fallback) {
-      return searchDeals(query);
-    }
     throw new Error(data.error ?? 'Search failed');
   }
 
@@ -62,11 +58,7 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
     setHasSearched(true);
     onQueryChange?.(q);
     try {
-      const result = await searchViaApi(q, sessionProfile, controller.signal).catch((err) => {
-        if (err instanceof DOMException && err.name === 'AbortError') throw err;
-        console.error('API search failed, falling back to mock:', err);
-        return searchDeals(q);
-      });
+      const result = await searchViaApi(q, sessionProfile, controller.signal);
       // Only update state if this is still the active request
       if (abortControllerRef.current !== controller) return;
       setDeals(result.deals);
@@ -78,9 +70,9 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
       const allTags = result.deals.flatMap((d) => d.tags);
       const uniqueTags = [...new Set(allTags)];
       const intent = {
-        destinations: [...new Set(result.deals.map((d) => d.destination.toLowerCase()))],
+        destinations: result.deals.map((d) => d.destination.toLowerCase()),
         interests: uniqueTags,
-        budgetPerPerson: result.deals.length > 0 ? result.deals[0].pricePerPerson : null,
+        budgetPerPerson: result.budgetPerPerson ?? (result.deals.length > 0 ? result.deals[0].pricePerPerson : null),
         travellers: 1,
       };
       const updated = updateSessionProfile(intent, result.preferences);
@@ -206,11 +198,6 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
               <p className="text-sm text-secondary">
                 <span className="font-semibold text-foreground">{deals.length} deals</span> matched to your search
               </p>
-              {source === 'mock' && (
-                <span className="text-xs text-secondary/60">
-                  Sample results — live pricing unavailable
-                </span>
-              )}
             </div>
             <DealGrid deals={deals} />
             <PreferencePanel
@@ -239,14 +226,32 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
         {/* Empty state */}
         {!loading && hasSearched && deals.length === 0 && (
           <div className="text-center py-16 animate-fade-in">
-            <p className="text-lg text-secondary">No deals found for that search. Try something different.</p>
+            <p className="text-lg text-secondary mb-2">No deals found for that search.</p>
+            <p className="text-sm text-secondary/70 max-w-md mx-auto mb-6">
+              Try different dates, a higher budget, or a different destination. We search 447 destinations across Europe, North Africa, and the Middle East.
+            </p>
+            <div className="flex flex-wrap justify-center gap-2 mb-6">
+              {[
+                'Somewhere warm under £400',
+                'Greek islands for a week',
+                'City break with great food',
+              ].map((suggestion) => (
+                <button
+                  key={suggestion}
+                  onClick={() => handleSuggestedQuery(suggestion)}
+                  className="text-sm px-3.5 py-1.5 rounded-full bg-surface border border-border/60 text-secondary hover:border-accent/40 hover:text-foreground transition-all cursor-pointer"
+                >
+                  {suggestion}
+                </button>
+              ))}
+            </div>
             <button
               onClick={() => {
                 setHasSearched(false);
                 setDeals([]);
                 setQuery('');
               }}
-              className="mt-4 text-accent hover:text-accent-hover text-sm font-medium cursor-pointer transition-colors"
+              className="text-accent hover:text-accent-hover text-sm font-medium cursor-pointer transition-colors"
             >
               Start over
             </button>

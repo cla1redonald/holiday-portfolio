@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { cookies } from 'next/headers';
 import { parseSearchQuery } from '@/lib/nlp-parser';
-import { searchFlights, searchStays } from '@/lib/duffel-client';
+import { searchFlights, searchStays, ResolvedDestination } from '@/lib/duffel-client';
+import { searchAmadeusHotels } from '@/lib/amadeus-client';
 import { buildDeals } from '@/lib/deal-builder';
-import { searchDeals as searchMockDeals } from '@/lib/search-engine';
+import { buildQueryText, embedText } from '@/lib/embeddings';
+import { findSimilarDestinations } from '@/lib/destination-search';
+import { getServerSession, saveServerSession, createServerSession } from '@/lib/session-store';
+import { getRedis } from '@/lib/redis';
 import { SearchResult, SessionProfile } from '@/types';
 
 /** Validate and sanitize client-provided session profile to prevent abuse */
@@ -41,6 +46,9 @@ function sanitizeSessionProfile(raw: unknown): SessionProfile | null {
     dismissedPreferences,
     createdAt: typeof obj.createdAt === 'string' ? obj.createdAt.slice(0, 30) : new Date().toISOString(),
     lastSearchAt: typeof obj.lastSearchAt === 'string' ? obj.lastSearchAt.slice(0, 30) : new Date().toISOString(),
+    breakdownClicks: typeof obj.breakdownClicks === 'number' ? Math.min(Math.max(0, obj.breakdownClicks), 10000) : undefined,
+    proInterestClicked: typeof obj.proInterestClicked === 'boolean' ? obj.proInterestClicked : undefined,
+    proInterestEmail: typeof obj.proInterestEmail === 'string' ? obj.proInterestEmail.slice(0, 200) : undefined,
   };
 }
 
@@ -64,18 +72,20 @@ export async function OPTIONS(request: NextRequest) {
   return setCorsHeaders(res, origin);
 }
 
-const RATE_LIMIT = { windowMs: 60_000, maxRequests: 5 };
-const requestCounts = new Map<string, { count: number; resetTime: number }>();
+async function isRateLimited(ip: string): Promise<boolean> {
+  try {
+    const redis = getRedis();
+    if (!redis) return false; // No Redis = no rate limiting (graceful degradation)
 
-function isRateLimited(ip: string): boolean {
-  const now = Date.now();
-  const record = requestCounts.get(ip);
-  if (!record || now > record.resetTime) {
-    requestCounts.set(ip, { count: 1, resetTime: now + RATE_LIMIT.windowMs });
-    return false;
+    const key = `ratelimit:search:${ip}`;
+    const count = await redis.incr(key);
+    if (count === 1) {
+      await redis.expire(key, 60); // 60 second window
+    }
+    return count > 5; // 5 requests per minute
+  } catch {
+    return false; // Redis error = don't block the request
   }
-  record.count++;
-  return record.count > RATE_LIMIT.maxRequests;
 }
 
 function addDays(date: Date, days: number): string {
@@ -89,7 +99,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const ip = request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ?? 'unknown';
-    if (isRateLimited(ip)) {
+    if (await isRateLimited(ip)) {
       return setCorsHeaders(
         NextResponse.json(
           { error: 'Too many requests. Please try again in a minute.' },
@@ -98,6 +108,10 @@ export async function POST(request: NextRequest) {
         origin
       );
     }
+
+    // Session: read cookie
+    const cookieStore = await cookies();
+    const sessionCookie = cookieStore.get('roami_sid')?.value ?? null;
 
     const body = await request.json();
     const query = body.query;
@@ -125,9 +139,39 @@ export async function POST(request: NextRequest) {
     }
 
     // Step 1: Parse the natural language query with Claude Haiku
-    console.log('[search] Parsing query with Haiku...');
     const intent = await parseSearchQuery(query);
-    console.log('[search] Haiku parsed:', JSON.stringify({ destinations: intent.destinations, nights: intent.nights, travellers: intent.travellers }));
+
+    // Step 1.5: Semantic destination matching
+    const queryText = buildQueryText(intent);
+    const queryEmbedding = await embedText(queryText);
+    let destinations = intent.destinations;
+    let similarityMap: Record<string, number> = {};
+    let resolvedDestinations: ResolvedDestination[] = [];
+    let destinationTags: Record<string, string[]> = {};
+
+    if (queryEmbedding) {
+      const matches = await findSimilarDestinations(queryEmbedding, {
+        limit: 5,
+        budgetPerPerson: intent.budgetPerPerson,
+      });
+      if (matches.length > 0) {
+        const top = matches.slice(0, 3);
+        destinations = top.map(m => m.slug);
+        similarityMap = Object.fromEntries(matches.map(m => [m.slug, m.similarity]));
+        resolvedDestinations = top.map(m => ({
+          slug: m.slug,
+          iata: m.iata,
+          name: m.name,
+          country: m.country,
+          latitude: m.latitude,
+          longitude: m.longitude,
+          imageUrl: m.imageUrl,
+          tags: m.tags,
+          seedPriceGbp: m.seedPriceGbp,
+        }));
+        destinationTags = Object.fromEntries(top.map(m => [m.slug, m.tags]));
+      }
+    }
 
     // Step 2: Calculate dates
     const now = new Date();
@@ -153,28 +197,67 @@ export async function POST(request: NextRequest) {
       departureDate = addDays(now, 21);
       returnDate = addDays(now, 21 + intent.nights);
     }
-    console.log('[search] Dates:', departureDate, '→', returnDate);
-
     // Step 3: Search flights and stays in parallel
-    console.log('[search] Searching Duffel flights + stays...');
-    const [flights, stays] = await Promise.all([
+    const [flights, duffelStays] = await Promise.all([
       searchFlights({
-        destinations: intent.destinations,
+        destinations,
         origin: intent.originAirport ?? undefined,
         departureDate,
         returnDate,
         travellers: intent.travellers,
+        resolvedDestinations,
       }),
       searchStays({
-        destinations: intent.destinations,
+        destinations,
         checkIn: departureDate,
         checkOut: returnDate,
         guests: intent.travellers,
+        resolvedDestinations,
       }),
     ]);
-    console.log('[search] Flights:', flights.length, 'results. Stays:', stays.length, 'results');
+
+    // Step 3.5: If Duffel Stays returned nothing, try Amadeus for hotel data
+    let stays = duffelStays;
+    if (duffelStays.length === 0 && resolvedDestinations.length > 0) {
+      const amadeusResults = await Promise.all(
+        resolvedDestinations
+          .filter(rd => rd.slug)
+          .map(rd => searchAmadeusHotels({
+            cityCode: rd.iata,
+            checkIn: departureDate,
+            checkOut: returnDate,
+            guests: intent.travellers,
+            destination: rd.slug!,
+          }))
+      );
+      stays = amadeusResults.flat();
+    }
 
     // Step 4: Bundle into deals (async — fetches market price data)
+    const resolvedMap: Record<string, { iata: string; country: string; imageUrl: string; seedPriceGbp: number | null }> = {};
+    for (const rd of resolvedDestinations) {
+      if (rd.slug) {
+        resolvedMap[rd.slug] = {
+          iata: rd.iata,
+          country: rd.country,
+          imageUrl: rd.imageUrl ?? '',
+          seedPriceGbp: rd.seedPriceGbp ?? null,
+        };
+      }
+    }
+
+    // Merge session: prefer server-side if available, fall back to client-provided
+    let sessionProfile = sanitizeSessionProfile(body.sessionProfile);
+    if (sessionCookie) {
+      const serverSession = await getServerSession(sessionCookie);
+      if (serverSession) {
+        // Server session has higher search count = more data, prefer it
+        if (!sessionProfile || serverSession.searchCount >= sessionProfile.searchCount) {
+          sessionProfile = serverSession;
+        }
+      }
+    }
+
     const deals = await buildDeals({
       flights,
       stays,
@@ -182,23 +265,11 @@ export async function POST(request: NextRequest) {
       travellers: intent.travellers,
       budgetPerPerson: intent.budgetPerPerson,
       origin: intent.originAirport ?? undefined,
-      sessionProfile: sanitizeSessionProfile(body.sessionProfile),
+      sessionProfile,
+      similarityScores: similarityMap,
+      destinationTags,
+      resolvedDestinations: resolvedMap,
     });
-    console.log('[search] Built', deals.length, 'deals');
-
-    // If Duffel returned no results (test mode, no Stays access, etc.),
-    // use Claude Haiku preferences with mock deals as a hybrid fallback
-    if (deals.length === 0) {
-      console.log('[search] No Duffel results — falling back to mock deals');
-      const mockResult = await searchMockDeals(query);
-      const result: SearchResult = {
-        deals: mockResult.deals,
-        preferences: intent.preferences.length > 0 ? intent.preferences : mockResult.preferences,
-        query,
-        source: 'mock',
-      };
-      return setCorsHeaders(NextResponse.json(result), origin);
-    }
 
     // Strip internal margin fields before sending to client
     const result: SearchResult = {
@@ -206,9 +277,36 @@ export async function POST(request: NextRequest) {
       preferences: intent.preferences,
       query,
       source: 'duffel',
+      budgetPerPerson: intent.budgetPerPerson ?? null,
     };
 
-    return setCorsHeaders(NextResponse.json(result), origin);
+    // Persist session server-side (best-effort, non-blocking for response)
+    let sessionId = sessionCookie;
+    if (sessionProfile) {
+      if (sessionId) {
+        // Fire-and-forget save
+        saveServerSession(sessionId, sessionProfile).catch(() => {});
+      } else {
+        // Create new server session
+        sessionId = await createServerSession(sessionProfile);
+      }
+    }
+    result.sessionId = sessionId ?? undefined;
+
+    const response = setCorsHeaders(NextResponse.json(result), origin);
+
+    // Set session cookie if new or missing
+    if (sessionId && sessionId !== sessionCookie) {
+      response.cookies.set('roami_sid', sessionId, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === 'production',
+        sameSite: 'lax',
+        maxAge: 30 * 24 * 60 * 60, // 30 days
+        path: '/',
+      });
+    }
+
+    return response;
   } catch (err) {
     console.error('Search API error:', err);
     return setCorsHeaders(

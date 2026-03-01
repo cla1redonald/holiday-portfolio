@@ -12,12 +12,11 @@ const CANONICAL_TAGS = [
 
 /**
  * Extract canonical tags from a display label (e.g. "Great food scene" → ["food"]).
- * Uses word-boundary matching to avoid false positives (e.g. "party" matching "art").
  * Returns the label lowercased if no canonical tags match.
  */
 export function normalizeToTags(label: string): string[] {
   const lower = label.toLowerCase();
-  const matched = CANONICAL_TAGS.filter((tag) => new RegExp(`\\b${tag}\\b`).test(lower));
+  const matched = CANONICAL_TAGS.filter((tag) => lower.includes(tag));
   return matched.length > 0 ? matched : [lower];
 }
 
@@ -39,40 +38,13 @@ function createDefaultProfile(): SessionProfile {
   };
 }
 
-function isNumberRecord(val: unknown): val is Record<string, number> {
-  if (!val || typeof val !== 'object' || Array.isArray(val)) return false;
-  return Object.values(val).every((v) => typeof v === 'number');
-}
-
-/** Validate and coerce parsed data to a safe SessionProfile, falling back to defaults. */
-function validateProfile(data: unknown): SessionProfile {
-  if (!data || typeof data !== 'object') return createDefaultProfile();
-  const p = data as Record<string, unknown>;
-  const defaults = createDefaultProfile();
-  return {
-    sessionId: typeof p.sessionId === 'string' ? p.sessionId : defaults.sessionId,
-    searchCount: typeof p.searchCount === 'number' ? p.searchCount : 0,
-    interests: isNumberRecord(p.interests) ? p.interests : {},
-    destinations: isNumberRecord(p.destinations) ? p.destinations : {},
-    budgetSignals: Array.isArray(p.budgetSignals)
-      ? p.budgetSignals.filter((n): n is number => typeof n === 'number').slice(0, 50)
-      : [],
-    travelStyle: isNumberRecord(p.travelStyle) ? p.travelStyle : {},
-    dismissedPreferences: Array.isArray(p.dismissedPreferences)
-      ? p.dismissedPreferences.filter((s): s is string => typeof s === 'string').slice(0, 100)
-      : [],
-    createdAt: typeof p.createdAt === 'string' ? p.createdAt : defaults.createdAt,
-    lastSearchAt: typeof p.lastSearchAt === 'string' ? p.lastSearchAt : defaults.lastSearchAt,
-  };
-}
-
 export function getSessionProfile(): SessionProfile {
   if (typeof window === 'undefined') return createDefaultProfile();
 
   try {
     const raw = sessionStorage.getItem(STORAGE_KEY);
     if (raw) {
-      return validateProfile(JSON.parse(raw));
+      return JSON.parse(raw) as SessionProfile;
     }
   } catch {
     // Corrupted data — start fresh
@@ -147,6 +119,19 @@ export function dismissPreference(tag: string): SessionProfile {
   }
 
   return persist(profile);
+}
+
+export function trackBreakdownClick(): void {
+  const profile = getSessionProfile();
+  profile.breakdownClicks = (profile.breakdownClicks ?? 0) + 1;
+  persist(profile);
+}
+
+export function trackProInterest(email?: string): void {
+  const profile = getSessionProfile();
+  profile.proInterestClicked = true;
+  if (email) profile.proInterestEmail = email;
+  persist(profile);
 }
 
 export function resetSession(): void {

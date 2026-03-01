@@ -18,6 +18,12 @@ export interface Deal {
   priceContext?: PriceContext;
   source?: 'duffel' | 'mock';
   alternativeFlights?: FlightOffer[];
+  /** Net margin in GBP (negative = loss-maker). Only set for Duffel deals. */
+  netMargin?: number;
+  /** True if this deal costs us more than we earn */
+  isLossMaker?: boolean;
+  /** Available ancillary services (bags, flexible cancellation) with customer pricing */
+  ancillaries?: DealAncillary[];
 }
 
 export interface SearchResult {
@@ -25,6 +31,8 @@ export interface SearchResult {
   preferences: UserPreference[];
   query: string;
   source?: 'duffel' | 'mock';
+  sessionId?: string;
+  budgetPerPerson?: number | null;
 }
 
 export interface UserPreference {
@@ -51,13 +59,12 @@ export interface ParsedIntent {
 }
 
 export interface PriceBreakdown {
-  flightCost: number;         // net flight cost per person (GBP)
-  hotelCost: number;          // net hotel cost per person (GBP)
+  flightCost: number;         // raw flight cost per person (GBP)
+  hotelCost: number;          // raw hotel cost per person (GBP)
   hotelEstimated: boolean;    // true if hotel cost is estimated (no stays data)
-  subtotal: number;           // flightCost + hotelCost
-  margin: number;             // Roami margin per person (0 for now)
-  marginType: 'none' | 'affiliate' | 'markup';
-  total: number;              // subtotal + margin = pricePerPerson
+  subtotal: number;           // flightCost + hotelCost (pre-markup)
+  markup: number;             // from pricing engine (5% order markup)
+  total: number;              // subtotal + markup = customer price per person
 }
 
 export interface FlightDetail {
@@ -82,14 +89,6 @@ export interface PriceContext {
   source: 'observed' | 'seed';
 }
 
-export interface MarginConfig {
-  mode: 'passthrough' | 'affiliate' | 'markup';
-  affiliateRate: number;
-  markupRate: number;
-  minMarginGBP: number;
-  maxMarginGBP: number;
-}
-
 export interface SessionProfile {
   sessionId: string;
   searchCount: number;
@@ -100,6 +99,31 @@ export interface SessionProfile {
   dismissedPreferences: string[];          // tags the user explicitly dismissed
   createdAt: string;
   lastSearchAt: string;
+  breakdownClicks?: number;                // times user expanded a cost breakdown
+  proInterestClicked?: boolean;            // clicked "Notify me" on Pro teaser
+  proInterestEmail?: string;               // email if provided via Pro teaser
+}
+
+export interface PassengerDetails {
+  title: 'mr' | 'mrs' | 'ms' | 'miss' | 'dr';
+  givenName: string;
+  familyName: string;
+  bornOn: string;    // YYYY-MM-DD
+  gender: 'm' | 'f';
+  email: string;
+  phoneNumber: string;
+}
+
+export interface BookingConfirmation {
+  orderId: string;
+  bookingReference: string;
+}
+
+export interface DealAncillary {
+  serviceId: string;
+  category: 'bags' | 'flexibility';
+  label: string;
+  customerPrice: number;
 }
 
 export interface FlightOffer {

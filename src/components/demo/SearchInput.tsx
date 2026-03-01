@@ -12,7 +12,6 @@ interface SearchInputProps {
 export default function SearchInput({ value, onChange, onSearch, loading }: SearchInputProps) {
   const [localValue, setLocalValue] = useState(value);
   const [focused, setFocused] = useState(false);
-  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
@@ -23,25 +22,16 @@ export default function SearchInput({ value, onChange, onSearch, loading }: Sear
     const newValue = e.target.value;
     setLocalValue(newValue);
     onChange(newValue);
-
-    if (debounceRef.current) clearTimeout(debounceRef.current);
-    debounceRef.current = setTimeout(() => {
-      if (newValue.trim()) {
-        onSearch(newValue);
-      }
-    }, 500);
   };
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Enter' && localValue.trim()) {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
       onSearch(localValue);
     }
   };
 
   const handleSubmit = () => {
     if (localValue.trim()) {
-      if (debounceRef.current) clearTimeout(debounceRef.current);
       onSearch(localValue);
     }
   };

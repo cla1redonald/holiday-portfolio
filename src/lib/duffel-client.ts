@@ -1,8 +1,8 @@
 import { Duffel } from '@duffel/api';
-import { lookupCity } from './iata-codes';
+import { getDestinationBySlug } from './destination-search';
 
 // Creates a Duffel client using the API token from environment
-function getDuffel(): Duffel {
+export function getDuffel(): Duffel {
   const token = process.env.DUFFEL_API_TOKEN;
   if (!token) throw new Error('DUFFEL_API_TOKEN not configured');
   try {
@@ -35,6 +35,81 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
 }
 
 
+// Cache for resolved destinations (1-hour TTL)
+const resolveCache = new Map<string, { data: { iata: string; name: string; country: string; latitude: number; longitude: number; imageUrl: string } | null; expiresAt: number }>();
+
+export interface ResolvedDestination {
+  slug?: string;
+  iata: string;
+  name: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+  imageUrl: string;
+  tags?: string[];
+  seedPriceGbp?: number | null;
+}
+
+/**
+ * Resolve a destination by slug/name. Checks Supabase first, then falls back
+ * to Duffel Places API.
+ */
+export async function resolveDestination(query: string): Promise<ResolvedDestination | null> {
+  const key = query.toLowerCase();
+  const cached = resolveCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+
+  // 1. Try Supabase destinations table
+  const dbMatch = await getDestinationBySlug(key);
+  if (dbMatch) {
+    const result: ResolvedDestination = {
+      iata: dbMatch.iata,
+      name: dbMatch.name,
+      country: dbMatch.country,
+      latitude: dbMatch.latitude,
+      longitude: dbMatch.longitude,
+      imageUrl: dbMatch.imageUrl,
+    };
+    resolveCache.set(key, { data: result, expiresAt: Date.now() + 3_600_000 });
+    return result;
+  }
+
+  // 2. Fall back to Duffel Places API
+  try {
+    const duffel = getDuffel();
+    const response = await duffel.suggestions.list({ query: key });
+    const places = response.data ?? [];
+    const city = places.find((p) => (p as unknown as { type?: string }).type === 'city') ?? places[0];
+    if (city) {
+      const cityAny = city as unknown as {
+        iata_code?: string;
+        name?: string;
+        city_name?: string;
+        latitude?: number;
+        longitude?: number;
+      };
+      if (cityAny.iata_code) {
+        const result: ResolvedDestination = {
+          iata: cityAny.iata_code,
+          name: cityAny.city_name ?? cityAny.name ?? key,
+          country: '',
+          latitude: cityAny.latitude ?? 0,
+          longitude: cityAny.longitude ?? 0,
+          imageUrl: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&q=80',
+        };
+        resolveCache.set(key, { data: result, expiresAt: Date.now() + 3_600_000 });
+        return result;
+      }
+    }
+  } catch (err) {
+    console.error('[duffel-client] resolveDestination Duffel fallback failed:', err);
+  }
+
+  // Short TTL for null results so transient failures don't poison the cache
+  resolveCache.set(key, { data: null, expiresAt: Date.now() + 300_000 });
+  return null;
+}
+
 export interface FlightOffer {
   offerId: string;
   pricePerPerson: number;
@@ -45,8 +120,16 @@ export interface FlightOffer {
   totalDuration: number;
 }
 
+export interface AncillaryResult {
+  serviceId: string;
+  type: 'baggage' | 'cancel_for_any_reason';
+  amount: number;
+  currency: string;
+  label: string;
+  passengerIds: string[];
+}
+
 export interface FlightResult {
-  // --- existing fields ---
   destination: string;
   airline: string;
   departureDate: string;
@@ -54,8 +137,6 @@ export interface FlightResult {
   pricePerPerson: number;
   currency: string;
   nights: number;
-
-  // --- new fields ---
   offerId: string;
   offerExpiresAt: string;
   cabinClass: string;
@@ -68,6 +149,7 @@ export interface FlightResult {
   airlineLogo: string | null;
   totalDuration: number;
   allOffers: FlightOffer[];
+  ancillaries: AncillaryResult[];
 }
 
 export interface StayResult {
@@ -90,10 +172,17 @@ export async function searchFlights(params: {
   departureDate: string;
   returnDate: string;
   travellers: number;
+  resolvedDestinations?: ResolvedDestination[];
 }): Promise<FlightResult[]> {
   const duffel = getDuffel();
   const origin = params.origin ?? 'LHR';
   const results: FlightResult[] = [];
+
+  // Build a lookup map from pre-resolved destinations
+  const resolvedMap = new Map<string, ResolvedDestination>();
+  for (const rd of params.resolvedDestinations ?? []) {
+    resolvedMap.set(rd.slug ?? '', rd);
+  }
 
   // Passengers array — matching Duffel docs exactly
   const passengers = Array.from({ length: params.travellers }, () => ({
@@ -102,8 +191,9 @@ export async function searchFlights(params: {
 
   // Search flights to each destination in parallel (max 3), with per-search timeout
   const searches = params.destinations.slice(0, 3).map((dest) => withTimeout((async () => {
-    const cityInfo = lookupCity(dest);
-    if (!cityInfo) return null;
+    const resolved = resolvedMap.get(dest) ?? await resolveDestination(dest);
+    if (!resolved) return null;
+    const cityInfo = { iata: resolved.iata, latitude: resolved.latitude, longitude: resolved.longitude };
 
     try {
       // Following: https://duffel.com/docs/guides/getting-started-with-flights
@@ -138,12 +228,38 @@ export async function searchFlights(params: {
         limit: 5,
       });
       const offers = offersResponse.data ?? [];
-      console.log(`Flights to ${dest} (${cityInfo.iata}): ${offers.length} offers`);
 
       // Take cheapest offer (already sorted by total_amount)
       const cheapest = offers[0];
 
       if (!cheapest) return null;
+
+      // Fetch ancillaries for cheapest offer (requires separate call — list endpoint strips available_services)
+      let ancillaries: AncillaryResult[] = [];
+      try {
+        const detailed = await duffel.offers.get(cheapest.id, { return_available_services: true });
+        const services = (detailed.data as unknown as { available_services?: Array<{
+          id: string;
+          type: 'baggage' | 'cancel_for_any_reason';
+          total_amount: string;
+          total_currency: string;
+          passenger_ids: string[];
+          metadata?: { maximum_weight_kg?: number | null; type?: string };
+        }> }).available_services ?? [];
+
+        ancillaries = services.map(svc => ({
+          serviceId: svc.id,
+          type: svc.type,
+          amount: parseFloat(svc.total_amount),
+          currency: svc.total_currency,
+          label: svc.type === 'baggage'
+            ? `${svc.metadata?.maximum_weight_kg ?? '23'}kg checked bag`
+            : 'Cancel for any reason',
+          passengerIds: svc.passenger_ids ?? [],
+        }));
+      } catch {
+        // Non-critical — deals work fine without ancillaries
+      }
 
       const nights = Math.ceil(
         (new Date(params.returnDate).getTime() - new Date(params.departureDate).getTime()) /
@@ -166,9 +282,7 @@ export async function searchFlights(params: {
       const outboundSegments = outboundSlice?.segments ?? [];
       const returnSegments = returnSlice?.segments ?? [];
 
-      const outboundStops = outboundSegments.length > 0 ? outboundSegments.length - 1 : 0;
-      const returnStops = returnSegments.length > 0 ? returnSegments.length - 1 : 0;
-      const stops = Math.max(outboundStops, returnStops);
+      const stops = outboundSegments.length > 0 ? outboundSegments.length - 1 : 0;
 
       const outboundDeparture = outboundSegments[0]?.departing_at ?? params.departureDate;
       const outboundArrival = outboundSegments[outboundSegments.length - 1]?.arriving_at ?? params.departureDate;
@@ -196,16 +310,13 @@ export async function searchFlights(params: {
         const offerReturn = offerSlices[1]?.segments ?? [];
         const offerOwner = offerAny.owner as { name?: string; logo_symbol_url?: string | null } | undefined;
 
-        const offerOutboundStops = offerOutbound.length > 0 ? offerOutbound.length - 1 : 0;
-        const offerReturnStops = offerReturn.length > 0 ? offerReturn.length - 1 : 0;
-
         return {
           offerId: offer.id,
           pricePerPerson: parseFloat(offer.total_amount) / params.travellers,
           currency: offer.total_currency,
           airline: offerOwner?.name ?? 'Airline',
           airlineLogo: offerOwner?.logo_symbol_url ?? null,
-          stops: Math.max(offerOutboundStops, offerReturnStops),
+          stops: offerOutbound.length > 0 ? offerOutbound.length - 1 : 0,
           totalDuration: calcSegmentsDuration([...offerOutbound, ...offerReturn]),
         };
       });
@@ -230,6 +341,7 @@ export async function searchFlights(params: {
         airlineLogo,
         totalDuration,
         allOffers,
+        ancillaries,
       };
     } catch (err: unknown) {
       const duffelErr = err as { errors?: Array<{ message: string; title: string }> };
@@ -257,6 +369,7 @@ export async function searchStays(params: {
   checkOut: string;
   guests: number;
   rooms?: number;
+  resolvedDestinations?: ResolvedDestination[];
 }): Promise<StayResult[]> {
   const duffel = getDuffel();
   const results: StayResult[] = [];
@@ -264,6 +377,12 @@ export async function searchStays(params: {
   const guests = Array.from({ length: params.guests }, () => ({
     type: 'adult' as const,
   }));
+
+  // Build a lookup map from pre-resolved destinations
+  const resolvedMap = new Map<string, ResolvedDestination>();
+  for (const rd of params.resolvedDestinations ?? []) {
+    resolvedMap.set(rd.slug ?? '', rd);
+  }
 
   const nights = Math.ceil(
     (new Date(params.checkOut).getTime() - new Date(params.checkIn).getTime()) /
@@ -273,8 +392,9 @@ export async function searchStays(params: {
   const searches = params.destinations.slice(0, 3).map((dest) =>
     withTimeout(
       (async () => {
-        const cityInfo = lookupCity(dest);
-        if (!cityInfo) return [];
+        const resolved = resolvedMap.get(dest) ?? await resolveDestination(dest);
+        if (!resolved) return [];
+        const cityInfo = { latitude: resolved.latitude, longitude: resolved.longitude };
 
         try {
           const response = await duffel.stays.search({
@@ -292,7 +412,6 @@ export async function searchStays(params: {
           });
 
           const stayResults = response.data.results ?? [];
-          console.log(`Stays in ${dest}: ${stayResults.length} results`);
 
           return stayResults
             .sort(

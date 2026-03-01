@@ -5,7 +5,8 @@
  * statistics for deal confidence scoring.
  */
 
-import { Redis } from "@upstash/redis";
+import { getSupabase } from "./supabase";
+import { getRedis } from "./redis";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -48,55 +49,6 @@ export interface MarketPrice {
   stats: RouteStats | null;
 }
 
-// ---------------------------------------------------------------------------
-// Seed prices — per-person for a 3-night trip (Q1 2026, GBP)
-// ---------------------------------------------------------------------------
-
-export const SEED_PRICES: Record<string, number> = {
-  lisbon: 320,
-  barcelona: 350,
-  amsterdam: 380,
-  rome: 340,
-  porto: 280,
-  prague: 260,
-  dubrovnik: 400,
-  marrakech: 300,
-  paris: 400,
-  berlin: 300,
-  vienna: 340,
-  budapest: 250,
-  copenhagen: 420,
-  athens: 310,
-  seville: 290,
-  florence: 360,
-  edinburgh: 280,
-  nice: 380,
-  split: 350,
-  malaga: 270,
-};
-
-// ---------------------------------------------------------------------------
-// Lazy Redis client
-// ---------------------------------------------------------------------------
-
-let redisClient: Redis | null = null;
-
-function getRedis(): Redis | null {
-  if (redisClient) return redisClient;
-
-  try {
-    if (
-      !process.env.UPSTASH_REDIS_REST_URL ||
-      !process.env.UPSTASH_REDIS_REST_TOKEN
-    ) {
-      return null;
-    }
-    redisClient = Redis.fromEnv();
-    return redisClient;
-  } catch {
-    return null;
-  }
-}
 
 // ---------------------------------------------------------------------------
 // KV key helpers
@@ -199,32 +151,37 @@ function round2(n: number): number {
 }
 
 // ---------------------------------------------------------------------------
-// Seed price lookup (private)
+// Seed price lookup (Supabase-first, hardcoded fallback)
 // ---------------------------------------------------------------------------
 
-// Reverse IATA→city lookup for seed price matching
-const IATA_TO_CITY: Record<string, string> = {
-  lis: "lisbon", bcn: "barcelona", ams: "amsterdam", fco: "rome",
-  opo: "porto", prg: "prague", dbv: "dubrovnik", rak: "marrakech",
-  cdg: "paris", ber: "berlin", vie: "vienna", bud: "budapest",
-  cph: "copenhagen", ath: "athens", svq: "seville", flr: "florence",
-  edi: "edinburgh", nce: "nice", spu: "split", agp: "malaga",
-};
 
-function getSeedPrice(route: string, nights: number): number | null {
-  // route is e.g. "LHR-LIS" — try to match the destination city
-  const dest = route.split("-").pop()?.toLowerCase() ?? "";
+async function getSeedPriceFromSupabase(iataOrSlug: string): Promise<number | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
 
-  // Direct city name match first (works if route uses city names)
-  if (SEED_PRICES[dest] !== undefined) {
-    return SEED_PRICES[dest] * (nights / 3);
+  try {
+    // Try by slug first, then by IATA code
+    const { data } = await supabase
+      .from('destinations')
+      .select('seed_price_gbp')
+      .or(`slug.eq.${iataOrSlug},iata.ilike.${iataOrSlug}`)
+      .limit(1)
+      .single();
+
+    return data?.seed_price_gbp ?? null;
+  } catch {
+    return null;
   }
+}
 
-  // IATA code → city name lookup
-  const cityName = IATA_TO_CITY[dest];
-  if (cityName && SEED_PRICES[cityName] !== undefined) {
-    return SEED_PRICES[cityName] * (nights / 3);
-  }
+async function getSeedPrice(route: string, nights: number): Promise<number | null> {
+  // Route format is "ORIGIN-destination-slug" — everything after the first hyphen is the destination
+  const firstHyphen = route.indexOf("-");
+  const dest = firstHyphen >= 0 ? route.slice(firstHyphen + 1).toLowerCase() : route.toLowerCase();
+
+  // Try Supabase (447 destinations with seed_price_gbp)
+  const dbPrice = await getSeedPriceFromSupabase(dest);
+  if (dbPrice != null) return dbPrice * (nights / 3);
 
   return null;
 }
@@ -326,7 +283,7 @@ export async function getMarketPrice(
   }
 
   // Fallback to seed price
-  const seed = getSeedPrice(route, nights);
+  const seed = await getSeedPrice(route, nights);
   const price = seed ?? 300 * (nights / 3); // generic fallback
 
   return {

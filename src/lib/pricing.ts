@@ -137,6 +137,8 @@ export function calculateDealPricing(params: {
   travellers: number;
   /** Whether this is a package (flight+hotel) — affects ATOL */
   isPackage: boolean;
+  /** Override markup percentage (default: PRICING_CONFIG.markup.orderPercentage = 0.05) */
+  markupPercentage?: number;
 }): DealCosts {
   const { flightTotalGBP, hotelTotalGBP, travellers, isPackage } = params;
   const cfg = PRICING_CONFIG;
@@ -150,11 +152,12 @@ export function calculateDealPricing(params: {
 
   // Our markup: percentage of total order value (flights + hotel)
   const orderTotal = flightTotalGBP + hotelTotalGBP;
+  const markupRate = params.markupPercentage ?? cfg.markup.orderPercentage;
 
   // --- Per-person prices (rounded first — single source of truth) ---
   const costPricePerPerson = Math.round(orderTotal / Math.max(travellers, 1));
   const customerPricePerPerson = Math.round(
-    (orderTotal * (1 + cfg.markup.orderPercentage)) / Math.max(travellers, 1),
+    (orderTotal * (1 + markupRate)) / Math.max(travellers, 1),
   );
 
   // Total the customer actually pays, derived from rounded per-person price.

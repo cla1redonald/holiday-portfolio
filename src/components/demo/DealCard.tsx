@@ -1,7 +1,11 @@
 'use client';
 
+import { useState } from 'react';
 import Image from 'next/image';
+import { useRouter } from 'next/navigation';
 import { Deal } from '@/types';
+import { setSelectedDeal } from '@/lib/deal-store';
+import { trackBreakdownClick } from '@/lib/session-preferences';
 
 interface DealCardProps {
   deal: Deal;
@@ -41,13 +45,22 @@ function ConfidenceBadge({ score }: { score: number }) {
 }
 
 export default function DealCard({ deal }: DealCardProps) {
+  const router = useRouter();
+  const [breakdownOpen, setBreakdownOpen] = useState(false);
+
   const savings = deal.originalPrice - deal.pricePerPerson;
   const savingsPct = deal.originalPrice > deal.pricePerPerson
     ? Math.round((savings / deal.originalPrice) * 100)
     : 0;
 
-  const scrollToWaitlist = () => {
-    document.getElementById('waitlist')?.scrollIntoView({ behavior: 'smooth' });
+  const handleViewDeal = () => {
+    setSelectedDeal(deal);
+    router.push(`/deal/${deal.id}`);
+  };
+
+  const handleExpandBreakdown = () => {
+    setBreakdownOpen(true);
+    trackBreakdownClick();
   };
 
   // Extract airline from highlights if present (fallback for deals without flight data)
@@ -181,10 +194,22 @@ export default function DealCard({ deal }: DealCardProps) {
           </span>
         </div>
 
+        {/* Ancillaries */}
+        {deal.ancillaries && deal.ancillaries.length > 0 && (
+          <p className="text-[11px] text-secondary/60">
+            {deal.ancillaries.map((a, i) => (
+              <span key={a.serviceId}>
+                {i > 0 && ' · '}
+                {a.category === 'bags' ? `Add bag from £${a.customerPrice}` : `Flexible cancellation £${a.customerPrice}`}
+              </span>
+            ))}
+          </p>
+        )}
+
         {/* Price */}
         <div className="mt-auto pt-2 border-t border-border/40">
           <div className="flex items-baseline gap-2">
-            <span className="font-mono text-2xl font-bold text-foreground">
+            <span className="font-mono text-2xl font-bold text-accent">
               £{deal.pricePerPerson}
             </span>
             {savingsPct > 0 && (
@@ -195,11 +220,21 @@ export default function DealCard({ deal }: DealCardProps) {
             <span className="text-secondary text-xs ml-auto">per person</span>
           </div>
 
-          {/* Price breakdown */}
+          {/* Price breakdown — gated behind expand link */}
           {deal.pricing && (
-            <p className="text-[11px] text-secondary/60 mt-0.5">
-              Flights £{deal.pricing.flightCost} · Hotel {deal.pricing.hotelEstimated ? '~' : ''}£{deal.pricing.hotelCost}
-            </p>
+            breakdownOpen ? (
+              <p className="text-[11px] text-secondary/60 mt-0.5">
+                Flights £{deal.pricing.flightCost} · Hotel {deal.pricing.hotelEstimated ? '~' : ''}£{deal.pricing.hotelCost}
+                {deal.pricing.markup > 0 && ` · £${deal.pricing.markup} booking fee`}
+              </p>
+            ) : (
+              <button
+                onClick={handleExpandBreakdown}
+                className="text-[11px] text-teal hover:text-teal/80 mt-0.5 cursor-pointer transition-colors"
+              >
+                See cost breakdown ▼
+              </button>
+            )
           )}
 
           {/* Offer expiry */}
@@ -213,21 +248,23 @@ export default function DealCard({ deal }: DealCardProps) {
         </div>
 
         {/* Tags */}
-        <div className="flex flex-wrap gap-1.5">
-          {deal.tags.slice(0, 4).map((tag) => (
-            <span
-              key={tag}
-              className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-secondary capitalize"
-            >
-              {tag}
-            </span>
-          ))}
-        </div>
+        {deal.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1.5">
+            {deal.tags.slice(0, 4).map((tag) => (
+              <span
+                key={tag}
+                className="text-[11px] px-2 py-0.5 rounded-full bg-muted text-secondary capitalize"
+              >
+                {tag}
+              </span>
+            ))}
+          </div>
+        )}
 
         {/* CTA */}
         <button
-          onClick={scrollToWaitlist}
-          className="w-full bg-foreground hover:bg-foreground/90 text-white font-display font-medium py-2.5 rounded-xl text-sm transition-all duration-200 cursor-pointer mt-1"
+          onClick={handleViewDeal}
+          className="w-full bg-accent hover:bg-accent/90 text-white font-display font-medium py-2.5 rounded-xl text-sm transition-all duration-200 cursor-pointer mt-1"
         >
           View Deal
         </button>

@@ -1,12 +1,50 @@
 # Gap Analysis Synthesis — Holiday Portfolio
 ## START HERE: Master Index for All 13 Strategy Artefacts
 
-**Date:** 2026-02-28
+**Date:** 2026-02-28 (pivot update: 2026-03-01)
 **Status:** Synthesis complete — Research Rounds 1–6 + 13 framework artefacts
 **Confidence Scores:** D8 / V7 / F8
 **Pivotal Objective:** Own the booking funnel with bed bank margins before January 2027 Sunshine Saturday
 
 > This is the master orientation document. It is self-contained enough to understand the full strategic picture. For depth on any topic, follow the [[wiki-links]] to the relevant artefact.
+
+---
+
+## Strategy Pivot — 2026-03-01
+
+> **This section supersedes the original gated validation framework (Gates 1-3) as the active execution plan. The original analysis is preserved below — it remains strategically valuable as reference material.**
+
+### What happened
+
+The original strategy called for a gated validation approach: three landing page variants, paid traffic test (~£500), user interviews, then build. Gate 1 was attempted, but the landing page was not usable for meaningful demand testing — it could not generate the kind of signal the gates were designed to capture.
+
+### The pivot
+
+Rather than iterate on landing page validation, the decision was made to **build a thin vertical slice of working capability for city breaks** and validate through real usage instead of proxy metrics. This is a deliberate strategic choice, not scope creep.
+
+**Revised approach:**
+- Build a live, working city break search product — NLP parsing, real Duffel flights, deal confidence scoring, pricing engine
+- Put it in the hands of 10-20 friends as early testers
+- Validate through real usage patterns and qualitative feedback, not landing page conversion rates
+- Acceptable economics during friends testing: break-even or loss-making is fine — the goal is honest product feedback, not revenue
+
+### Why this is strategically sound
+
+The original gates existed to prevent wasted build spend. The pivot achieves the same risk-reduction goal through a different mechanism: instead of testing messaging before building, we build the thinnest possible working slice and test the product directly. This actually generates stronger signal — real usage data rather than landing page click-through rates.
+
+The three cruxes identified in the original analysis (booking leakage, cold start paradox, affiliate cash flow trap) remain valid. The pivot addresses them differently: by getting a working product into real hands quickly, we get direct evidence on whether users would actually book through Roami vs defaulting to Skyscanner/Google Flights.
+
+### New validation framework
+
+| Stage | What | Success signal | Kill signal |
+|-------|------|---------------|-------------|
+| **Now** | Thin vertical slice — city break search with real flights, deal scoring, pricing engine | Working end-to-end | — |
+| **Next** | Friends testing — 10-20 friends using the live product | Friends actually use it, come back, give specific feedback | Universal "I'd just use Skyscanner" with no differentiation identified |
+| **Then** | Iterate based on real feedback → expand to hotels/booking flow | Friends say they'd book through it | No engagement after initial curiosity |
+
+### Status of original gates
+
+The original Gates 1-5 from [[12-decision-tree]] and the Month 0-1 validation phase from [[13-phase-1-plan]] are **no longer the active validation framework**. They are preserved as reference — the analysis behind them (booking leakage risk, cold start problem, unit economics) is still correct and informs current decisions. Future agents should not flag the absence of Gate 1 completion as a compliance gap.
 
 ---
 

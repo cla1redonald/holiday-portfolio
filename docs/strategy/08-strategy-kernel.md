@@ -68,10 +68,12 @@ The path to bed bank margins requires ATOL (12 weeks minimum). The path to ATOL 
 
 The guiding policy is a set of constraints — what HP will and will not do — that directly address all three elements of the crux:
 
-**Policy A: Own the booking funnel from Day 1 (addresses Crux 1: booking leakage)**
-HP is not a planning tool. HP is not an inspiration layer. HP is a booking platform with a personalisation engine layered on top. Every NLP query flows into a booking flow. Affiliate links are used *only* for revenue during ATOL application (the bridge); the goal from Month 1 is to move every booking through HP's own funnel. The deal confidence score ("this deal is 30% below average for you") exists specifically to capture the booking moment by removing the user's need to cross-check elsewhere.
+**Policy A: Own the booking funnel — built incrementally via thin vertical slice (addresses Crux 1: booking leakage)**
+HP is not a planning tool. HP is not an inspiration layer. HP is a booking platform with a personalisation engine layered on top. Every NLP query flows into a booking flow. Affiliate links are used *only* for revenue during ATOL application (the bridge); the goal is to move every booking through HP's own funnel. The deal confidence score ("this deal is 30% below average for you") exists specifically to capture the booking moment by removing the user's need to cross-check elsewhere.
 
-This rules out: building a planning-only MVP that defers booking to v2. The booking funnel must be in v1, even if the preference graph is basic.
+> **Pivot update (2026-03-01):** The "Day 1" timeline has shifted. The booking funnel is being built incrementally — city break search with real flights and deal scoring first, then hotel inventory (Duffel Stays), then the full booking flow. The strategic intent is unchanged: HP must own the funnel to survive. But the path to getting there is phased: build a working thin slice, validate it with friends (10-20 real users), then expand the funnel based on what the feedback reveals. "Day 1" now means "as soon as the thin slice is validated with friends and the funnel is technically complete." This is not a deferral — it is a more honest sequencing of build vs. validation.
+
+This rules out: building a planning-only MVP that defers booking to v2. The booking funnel must be built as soon as the search slice is validated, even if the preference graph is basic.
 
 **Policy B: Enter via price, not inspiration (differentiates from Mindtrip, addresses Crux 2: cold start)**
 The entry point is always a specific deal on a specific city break at a specific price — not "where should I go?" or "discover new destinations." This serves two functions: (1) it immediately demonstrates value to users who have a concrete booking intent, and (2) it generates preference data (booking behaviour is the richest preference signal) from the first interaction, seeding the graph faster than inspiration-browsing would.

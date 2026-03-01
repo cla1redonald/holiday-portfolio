@@ -1,9 +1,69 @@
 # Phase 1 Execution Roadmap — Holiday Portfolio
 
 **Horizon:** 18 months (Month 0 = decision to proceed)
-**Date:** February 2026
+**Date:** February 2026 (pivot update: 2026-03-01)
 **Framework:** Sequential build with embedded gates; cheapest validation first
 **Strategic question:** How should Holiday Portfolio enter the UK travel market as an AI personalisation engine with a bed bank revenue model?
+
+---
+
+## Revised Phase 1 — Thin Vertical Slice (2026-03-01)
+
+> **This section replaces the original Month 0-1 validation gates as the active execution plan.** The original phased roadmap below is preserved as reference — the analysis is still valid and informs later phases.
+
+The original plan called for landing page validation (Gate 1) before any build spend. The landing page approach was attempted but did not produce usable signal. The revised approach: build a thin vertical slice of real capability and validate through actual usage by friends.
+
+### Phase 1A: Build thin vertical slice (current — March 2026)
+
+**Goal:** A working city break search product with real data, not mocks.
+
+| Component | Status | Detail |
+|-----------|--------|--------|
+| NLP search | Done | Claude Haiku parses natural language → structured intent |
+| Real flights | Done | Duffel API returns live flight prices and availability |
+| Deal confidence scoring | Done | 5-factor scoring model — price vs market, timing, airline quality, route, flexibility |
+| Pricing engine | Done | Session personalisation, budget-aware pricing context |
+| Deal cards UI | Done | Real-time results with savings vs market average |
+
+### Phase 1B: End-to-end working product (next)
+
+**Goal:** A product someone could actually use to plan and book a city break.
+
+- Hotel inventory — activate Duffel Stays (requires sales contact; currently returns 403) or integrate alternative hotel source
+- Booking flow — move from "View Deal" to actual checkout (flight booking via Duffel, hotel booking TBD)
+- Origin airport selection — currently hardcoded to LHR, needs to be user-configurable
+- Result caching — reduce Duffel API calls, improve response times
+- Error handling — meaningful error messages, retry with modified query suggestions
+
+### Phase 1C: Friends testing
+
+**Goal:** 10-20 friends using the live product at roami.world, giving honest feedback.
+
+**What we're testing:**
+- Do friends actually come back and use it more than once?
+- Do they find deals they wouldn't have found on Skyscanner/Google Flights?
+- Would they book through Roami, or do they still default to their usual tools?
+- What's missing that would make them use it for their next real trip?
+
+**Success criteria:**
+- Friends actually use it (not just politely try it once)
+- At least some come back unprompted
+- Qualitative feedback identifies specific value — "I found X that I wouldn't have found otherwise"
+- Honest signal on whether they'd book through it
+
+**Kill signal:**
+- Friends universally say "I'd just use Skyscanner / Google Flights" with no differentiation identified
+- Zero repeat usage after initial curiosity
+- Feedback is exclusively about what's missing, with no recognition of what's valuable
+
+**Economics during this phase:**
+- Acceptable to run at a loss or break-even
+- API costs (Duffel, Claude) are the primary variable cost — manageable at 10-20 users
+- No revenue expectation — this is product validation, not commercial validation
+
+### How this connects to the original roadmap
+
+The original Phase 2 (Technical Foundation, Month 1-3) and Phase 3 (Bed Bank Integration, Month 3-5) remain the right next steps after friends testing validates the core product. The original Phase 1 (Validation, Month 0-1) has been replaced by the thin-slice approach above. The rest of the roadmap — dynamic packages, personalisation engine, scale — is unchanged in intent but will be re-sequenced based on what friends testing reveals.
 
 ---
 
