@@ -34,8 +34,18 @@ Last updated: 2026-03-01
 | 16 | Deal IDs use Date.now() — collision risk | deal-builder.ts | DONE |
 | 17 | No currency normalization (GBP/EUR/USD mixed) | deal-builder.ts | DONE |
 | 18 | Hardcoded AVG_PRICES will go stale | deal-builder.ts | DONE |
-| 19 | Stays uses raw fetch instead of SDK | duffel-client.ts | BACKLOG |
+| 19 | Stays uses raw fetch instead of SDK | duffel-client.ts | IN PROGRESS |
 | 20 | No frontend abort controller for in-flight requests | NlpSearchDemo.tsx | DONE |
 | 21 | No health check endpoint | api/health/route.ts | DONE |
 | 22 | Cold start penalty on first request | — | DONE |
 | 23 | Duffel singleton caches potentially revoked tokens | duffel-client.ts | DONE |
+
+## Feature Backlog — Enhancements
+
+| # | Feature | Reference | Status |
+|---|---------|-----------|--------|
+| 24 | Replace hardcoded iata-codes.ts with Duffel Places API | [Places API](https://duffel.com/docs/api/v2/places) — `duffel.suggestions.list()` for dynamic city lookups | BACKLOG |
+| 25 | Flight ancillaries (seat selection, bags, meals) | [Ancillaries Component](https://duffel.com/docs/guides/ancillaries-component) — Duffel drop-in React component | BACKLOG |
+| 26 | 3D Secure card payment flow | [Card Form + 3DS](https://duffel.com/docs/guides/card-form-component-with-3dsecure) — Duffel payment component | BACKLOG |
+| 27 | Dynamic pricing engine with margin/markup | [Margin & Markups](https://duffel.com/docs/guides/margin-and-markups) — Duffel markup API for revenue layer | BACKLOG |
+| 28 | Duffel Assistant for customer service | [Duffel Assistant](https://duffel.com/docs/guides/integrating-the-duffel-assistant) — embedded support widget | BACKLOG |
