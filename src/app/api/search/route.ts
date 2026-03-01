@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { parseSearchQuery } from '@/lib/nlp-parser';
-import { searchFlights, searchStays, ResolvedDestination } from '@/lib/duffel-client';
+import { searchFlights, searchStays, resolveDestination, ResolvedDestination } from '@/lib/duffel-client';
 import { searchAmadeusHotels } from '@/lib/amadeus-client';
 import { buildDeals } from '@/lib/deal-builder';
 import { buildQueryText, embedText } from '@/lib/embeddings';
@@ -176,6 +176,14 @@ export async function POST(request: NextRequest) {
         }));
         destinationTags = Object.fromEntries(top.map(m => [m.slug, m.tags]));
       }
+    }
+
+    // Step 1.75: If pgvector didn't provide resolved destinations, resolve them now
+    if (resolvedDestinations.length === 0 && destinations.length > 0) {
+      const resolved = await Promise.all(
+        destinations.slice(0, 5).map(d => resolveDestination(d))
+      );
+      resolvedDestinations = resolved.filter((r): r is ResolvedDestination => r !== null);
     }
 
     // Step 2: Calculate dates

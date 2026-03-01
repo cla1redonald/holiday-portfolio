@@ -63,6 +63,7 @@ export async function resolveDestination(query: string): Promise<ResolvedDestina
   const dbMatch = await getDestinationBySlug(key);
   if (dbMatch) {
     const result: ResolvedDestination = {
+      slug: key,
       iata: dbMatch.iata,
       name: dbMatch.name,
       country: dbMatch.country,
@@ -85,14 +86,17 @@ export async function resolveDestination(query: string): Promise<ResolvedDestina
         iata_code?: string;
         name?: string;
         city_name?: string;
+        city_country_code?: string;
+        country_name?: string;
         latitude?: number;
         longitude?: number;
       };
       if (cityAny.iata_code) {
         const result: ResolvedDestination = {
+          slug: key,
           iata: cityAny.iata_code,
           name: cityAny.city_name ?? cityAny.name ?? key,
-          country: '',
+          country: cityAny.country_name ?? cityAny.city_country_code ?? '',
           latitude: cityAny.latitude ?? 0,
           longitude: cityAny.longitude ?? 0,
           imageUrl: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&q=80',
