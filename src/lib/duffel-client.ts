@@ -166,7 +166,9 @@ export async function searchFlights(params: {
       const outboundSegments = outboundSlice?.segments ?? [];
       const returnSegments = returnSlice?.segments ?? [];
 
-      const stops = outboundSegments.length > 0 ? outboundSegments.length - 1 : 0;
+      const outboundStops = outboundSegments.length > 0 ? outboundSegments.length - 1 : 0;
+      const returnStops = returnSegments.length > 0 ? returnSegments.length - 1 : 0;
+      const stops = Math.max(outboundStops, returnStops);
 
       const outboundDeparture = outboundSegments[0]?.departing_at ?? params.departureDate;
       const outboundArrival = outboundSegments[outboundSegments.length - 1]?.arriving_at ?? params.departureDate;
@@ -194,13 +196,16 @@ export async function searchFlights(params: {
         const offerReturn = offerSlices[1]?.segments ?? [];
         const offerOwner = offerAny.owner as { name?: string; logo_symbol_url?: string | null } | undefined;
 
+        const offerOutboundStops = offerOutbound.length > 0 ? offerOutbound.length - 1 : 0;
+        const offerReturnStops = offerReturn.length > 0 ? offerReturn.length - 1 : 0;
+
         return {
           offerId: offer.id,
           pricePerPerson: parseFloat(offer.total_amount) / params.travellers,
           currency: offer.total_currency,
           airline: offerOwner?.name ?? 'Airline',
           airlineLogo: offerOwner?.logo_symbol_url ?? null,
-          stops: offerOutbound.length > 0 ? offerOutbound.length - 1 : 0,
+          stops: Math.max(offerOutboundStops, offerReturnStops),
           totalDuration: calcSegmentsDuration([...offerOutbound, ...offerReturn]),
         };
       });

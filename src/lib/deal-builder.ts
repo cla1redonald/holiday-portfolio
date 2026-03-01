@@ -289,11 +289,13 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
     return { stay, hotelTotal, flightConv, hotelConv, subtotalPerPerson, margin, totalPerPerson };
   });
 
-  // Batch market data and percentile lookups in parallel
+  // Batch market data and percentile lookups in parallel.
+  // Use flight cost only for percentile — observations in Redis are flight-only prices,
+  // so comparing totalPerPerson (flight+hotel) would inflate the percentile.
   const [marketDataResults, percentileResults] = await Promise.all([
     Promise.all(marketDataPromises),
     Promise.all(flights.map((flight, i) =>
-      getPricePercentile(perFlightData[i].totalPerPerson, routeKeys[i], flight.nights),
+      getPricePercentile(perFlightData[i].flightConv.gbp, routeKeys[i], flight.nights),
     )),
   ]);
 
