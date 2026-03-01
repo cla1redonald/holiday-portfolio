@@ -232,10 +232,10 @@ export async function POST(request: NextRequest) {
     // Step 3.5: If Duffel Stays returned nothing, try Amadeus for hotel data
     let stays = duffelStays;
     if (duffelStays.length === 0 && resolvedDestinations.length > 0) {
+      const withSlug = resolvedDestinations.filter(rd => rd.slug);
+      console.log(`[search] Duffel Stays empty, trying Amadeus for ${withSlug.length} destinations:`, withSlug.map(rd => `${rd.slug}(${rd.iata})`).join(', '));
       const amadeusResults = await Promise.all(
-        resolvedDestinations
-          .filter(rd => rd.slug)
-          .map(rd => searchAmadeusHotels({
+        withSlug.map(rd => searchAmadeusHotels({
             cityCode: rd.iata,
             checkIn: departureDate,
             checkOut: returnDate,
@@ -243,7 +243,11 @@ export async function POST(request: NextRequest) {
             destination: rd.slug!,
           }))
       );
-      stays = amadeusResults.flat();
+      const flatResults = amadeusResults.flat();
+      console.log(`[search] Amadeus returned ${flatResults.length} hotel results`);
+      stays = flatResults;
+    } else if (duffelStays.length > 0) {
+      console.log(`[search] Duffel Stays returned ${duffelStays.length} results, skipping Amadeus`);
     }
 
     // Step 4: Bundle into deals (async — fetches market price data)
