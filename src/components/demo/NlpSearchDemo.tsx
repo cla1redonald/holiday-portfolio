@@ -78,7 +78,7 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
       const allTags = result.deals.flatMap((d) => d.tags);
       const uniqueTags = [...new Set(allTags)];
       const intent = {
-        destinations: result.deals.map((d) => d.destination.toLowerCase()),
+        destinations: [...new Set(result.deals.map((d) => d.destination.toLowerCase()))],
         interests: uniqueTags,
         budgetPerPerson: result.deals.length > 0 ? result.deals[0].pricePerPerson : null,
         travellers: 1,

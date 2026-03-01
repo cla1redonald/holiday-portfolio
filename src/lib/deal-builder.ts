@@ -266,10 +266,9 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
     return cityInfo ? `${originCode}-${cityInfo.iata}` : `${originCode}-${flight.destination.toUpperCase()}`;
   });
   const marketDataPromises = routeKeys.map((key, i) => getMarketPrice(key, flights[i].nights));
-  const marketDataResults = await Promise.all(marketDataPromises);
 
-  for (const [index, flight] of flights.entries()) {
-    // Find the best stay for this destination
+  // Pre-compute per-flight pricing data (all synchronous) for percentile batch
+  const perFlightData = flights.map((flight) => {
     const destStays = stays
       .filter((s) => s.destination === flight.destination)
       .sort((a, b) => {
@@ -278,28 +277,34 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
         if (scoreB !== scoreA) return scoreB - scoreA;
         return a.totalPrice - b.totalPrice;
       });
-
     const stay = destStays[0];
-
     const estimatedHotelPerNight = stay ? (stay.totalPrice / Math.max(flight.nights, 1)) : 65;
     const hotelTotal = stay ? stay.totalPrice : estimatedHotelPerNight * flight.nights;
-    const hotelName = stay ? stay.hotelName : 'Hotel TBC';
-
     const hotelPerPerson = hotelTotal / Math.max(travellers, 1);
     const flightConv = toGBP(flight.pricePerPerson, flight.currency);
     const hotelConv = stay ? toGBP(hotelPerPerson, stay.currency) : { gbp: hotelPerPerson, known: true };
-    const currencyKnown = flightConv.known && hotelConv.known;
     const subtotalPerPerson = flightConv.gbp + hotelConv.gbp;
-
-    // Apply margin
     const margin = calculateMargin(subtotalPerPerson, MARGIN_CONFIG);
     const totalPerPerson = subtotalPerPerson + margin;
+    return { stay, hotelTotal, flightConv, hotelConv, subtotalPerPerson, margin, totalPerPerson };
+  });
+
+  // Batch market data and percentile lookups in parallel
+  const [marketDataResults, percentileResults] = await Promise.all([
+    Promise.all(marketDataPromises),
+    Promise.all(flights.map((flight, i) =>
+      getPricePercentile(perFlightData[i].totalPerPerson, routeKeys[i], flight.nights),
+    )),
+  ]);
+
+  for (const [index, flight] of flights.entries()) {
+    const { stay, hotelTotal, flightConv, hotelConv, subtotalPerPerson, margin, totalPerPerson } = perFlightData[index];
+    const hotelName = stay ? stay.hotelName : 'Hotel TBC';
+    const currencyKnown = flightConv.known && hotelConv.known;
 
     const routeKey = routeKeys[index];
     const market = marketDataResults[index];
-
-    // Percentile needs totalPerPerson which we just computed — still one async call per flight
-    const percentile = await getPricePercentile(totalPerPerson, routeKey, flight.nights);
+    const percentile = percentileResults[index];
 
     const priceCtx: PriceContext = {
       marketMedian: market.stats?.median ?? market.price,
