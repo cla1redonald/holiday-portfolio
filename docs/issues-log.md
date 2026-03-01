@@ -34,7 +34,7 @@ Last updated: 2026-03-01
 | 16 | Deal IDs use Date.now() — collision risk | deal-builder.ts | DONE |
 | 17 | No currency normalization (GBP/EUR/USD mixed) | deal-builder.ts | DONE |
 | 18 | Hardcoded AVG_PRICES will go stale | deal-builder.ts | DONE |
-| 19 | Stays uses raw fetch instead of SDK | duffel-client.ts | IN PROGRESS |
+| 19 | Stays uses raw fetch instead of SDK | duffel-client.ts | DONE |
 | 20 | No frontend abort controller for in-flight requests | NlpSearchDemo.tsx | DONE |
 | 21 | No health check endpoint | api/health/route.ts | DONE |
 | 22 | Cold start penalty on first request | — | DONE |
