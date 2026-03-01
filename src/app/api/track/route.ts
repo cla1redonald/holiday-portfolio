@@ -3,7 +3,7 @@ import { cookies } from 'next/headers';
 import { getServerSession, saveServerSession } from '@/lib/session-store';
 import { getRedis } from '@/lib/redis';
 
-const ALLOWED_EVENTS = ['breakdown_click', 'pro_interest'] as const;
+const ALLOWED_EVENTS = ['breakdown_click', 'pro_interest', 'booking_intent'] as const;
 type TrackEvent = typeof ALLOWED_EVENTS[number];
 
 async function isRateLimited(ip: string): Promise<boolean> {

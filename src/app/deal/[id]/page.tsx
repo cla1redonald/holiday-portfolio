@@ -1,11 +1,13 @@
 'use client';
 
+import { useRouter } from 'next/navigation';
 import { useSelectedDeal } from '@/lib/deal-store';
 import DealDetail from '@/components/deal/DealDetail';
 import Link from 'next/link';
 
 export default function DealPage() {
   const deal = useSelectedDeal();
+  const router = useRouter();
 
   if (!deal) {
     return (
@@ -28,9 +30,7 @@ export default function DealPage() {
   }
 
   const handleBook = () => {
-    // For now, scroll to waitlist on the homepage
-    // Will be replaced with actual booking form in Phase A3
-    window.location.href = '/#waitlist';
+    router.push(`/deal/${deal.id}/book`);
   };
 
   return <DealDetail deal={deal} onBook={handleBook} />;
