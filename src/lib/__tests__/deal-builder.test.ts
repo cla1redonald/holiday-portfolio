@@ -471,6 +471,75 @@ describe('deal-builder — buildDeals', () => {
   });
 
   // =========================================================================
+  // Cosine similarity scoring (semantic search)
+  // =========================================================================
+
+  describe('cosine similarity scoring', () => {
+    it('uses similarity score for Factor 2 when available', async () => {
+      const dealsWithSimilarity = await buildDeals({
+        ...defaultParams,
+        interests: [],
+        similarityScores: { lisbon: 0.85 },
+      });
+
+      const dealsWithoutSimilarity = await buildDeals({
+        ...defaultParams,
+        interests: [],
+      });
+
+      // With 0.85 similarity, interest match score should be ~17 (round(0.85 * 20))
+      // Without similarity and no interests, score should be 0
+      expect(dealsWithSimilarity[0].dealConfidence).toBeGreaterThan(
+        dealsWithoutSimilarity[0].dealConfidence,
+      );
+    });
+
+    it('shows "Strong match for your style" for similarity >= 0.7', async () => {
+      const deals = await buildDeals({
+        ...defaultParams,
+        interests: [],
+        similarityScores: { lisbon: 0.75 },
+      });
+
+      expect(deals[0].confidenceRationale).toContain('Strong match for your style');
+    });
+
+    it('shows "Good match for your preferences" for similarity 0.5-0.7', async () => {
+      const deals = await buildDeals({
+        ...defaultParams,
+        interests: [],
+        similarityScores: { lisbon: 0.55 },
+      });
+
+      expect(deals[0].confidenceRationale).toContain('Good match for your preferences');
+    });
+
+    it('falls back to tag matching when similarity not provided', async () => {
+      // Lisbon strengths: food, culture, nightlife, beach, budget
+      const dealsWithTags = await buildDeals({
+        ...defaultParams,
+        interests: ['food', 'culture', 'nightlife', 'beach', 'budget'],
+      });
+
+      // Should use DEST_STRENGTHS tag matching
+      expect(dealsWithTags[0].confidenceRationale).toContain('Strong match for');
+    });
+
+    it('prefers similarity over tags when both could apply', async () => {
+      // With similarity score, should use similarity not tags
+      const deals = await buildDeals({
+        ...defaultParams,
+        interests: ['food', 'culture'],
+        similarityScores: { lisbon: 0.35 },
+      });
+
+      // Similarity 0.35 → score ~7, which is less than tag matching would give
+      // But it should still use the similarity path (showing "Partial match")
+      expect(deals[0].confidenceRationale).toContain('Partial match');
+    });
+  });
+
+  // =========================================================================
   // Price logging
   // =========================================================================
 

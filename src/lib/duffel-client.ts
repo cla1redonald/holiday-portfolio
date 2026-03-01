@@ -1,5 +1,6 @@
 import { Duffel } from '@duffel/api';
 import { lookupCity } from './iata-codes';
+import { getDestinationBySlug } from './destination-search';
 
 // Creates a Duffel client using the API token from environment
 function getDuffel(): Duffel {
@@ -34,6 +35,92 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   ]);
 }
 
+
+// Cache for resolved destinations (1-hour TTL)
+const resolveCache = new Map<string, { data: { iata: string; name: string; country: string; latitude: number; longitude: number; imageUrl: string } | null; expiresAt: number }>();
+
+export interface ResolvedDestination {
+  iata: string;
+  name: string;
+  country: string;
+  latitude: number;
+  longitude: number;
+  imageUrl: string;
+}
+
+/**
+ * Resolve a destination by slug/name. Checks Supabase first, falls back to
+ * hardcoded iata-codes, then Duffel Places API.
+ */
+export async function resolveDestination(query: string): Promise<ResolvedDestination | null> {
+  const key = query.toLowerCase();
+  const cached = resolveCache.get(key);
+  if (cached && cached.expiresAt > Date.now()) return cached.data;
+
+  // 1. Try Supabase destinations table
+  const dbMatch = await getDestinationBySlug(key);
+  if (dbMatch) {
+    const result: ResolvedDestination = {
+      iata: dbMatch.iata,
+      name: dbMatch.name,
+      country: dbMatch.country,
+      latitude: dbMatch.latitude,
+      longitude: dbMatch.longitude,
+      imageUrl: dbMatch.imageUrl,
+    };
+    resolveCache.set(key, { data: result, expiresAt: Date.now() + 3_600_000 });
+    return result;
+  }
+
+  // 2. Fall back to hardcoded lookup
+  const cityInfo = lookupCity(key);
+  if (cityInfo) {
+    const result: ResolvedDestination = {
+      iata: cityInfo.iata,
+      name: key.charAt(0).toUpperCase() + key.slice(1),
+      country: cityInfo.country,
+      latitude: cityInfo.latitude,
+      longitude: cityInfo.longitude,
+      imageUrl: cityInfo.image,
+    };
+    resolveCache.set(key, { data: result, expiresAt: Date.now() + 3_600_000 });
+    return result;
+  }
+
+  // 3. Fall back to Duffel Places API
+  try {
+    const duffel = getDuffel();
+    const response = await duffel.suggestions.list({ query: key });
+    const places = response.data ?? [];
+    const city = places.find((p) => (p as unknown as { type?: string }).type === 'city') ?? places[0];
+    if (city) {
+      const cityAny = city as unknown as {
+        iata_code?: string;
+        name?: string;
+        city_name?: string;
+        latitude?: number;
+        longitude?: number;
+      };
+      if (cityAny.iata_code) {
+        const result: ResolvedDestination = {
+          iata: cityAny.iata_code,
+          name: cityAny.city_name ?? cityAny.name ?? key,
+          country: '',
+          latitude: cityAny.latitude ?? 0,
+          longitude: cityAny.longitude ?? 0,
+          imageUrl: 'https://images.unsplash.com/photo-1488646953014-85cb44e25828?w=800&q=80',
+        };
+        resolveCache.set(key, { data: result, expiresAt: Date.now() + 3_600_000 });
+        return result;
+      }
+    }
+  } catch (err) {
+    console.error('[duffel-client] resolveDestination Duffel fallback failed:', err);
+  }
+
+  resolveCache.set(key, { data: null, expiresAt: Date.now() + 3_600_000 });
+  return null;
+}
 
 export interface FlightOffer {
   offerId: string;
@@ -102,8 +189,9 @@ export async function searchFlights(params: {
 
   // Search flights to each destination in parallel (max 3), with per-search timeout
   const searches = params.destinations.slice(0, 3).map((dest) => withTimeout((async () => {
-    const cityInfo = lookupCity(dest);
-    if (!cityInfo) return null;
+    const resolved = await resolveDestination(dest);
+    if (!resolved) return null;
+    const cityInfo = { iata: resolved.iata, latitude: resolved.latitude, longitude: resolved.longitude };
 
     try {
       // Following: https://duffel.com/docs/guides/getting-started-with-flights
@@ -268,8 +356,9 @@ export async function searchStays(params: {
   const searches = params.destinations.slice(0, 3).map((dest) =>
     withTimeout(
       (async () => {
-        const cityInfo = lookupCity(dest);
-        if (!cityInfo) return [];
+        const resolved = await resolveDestination(dest);
+        if (!resolved) return [];
+        const cityInfo = { latitude: resolved.latitude, longitude: resolved.longitude };
 
         try {
           const response = await duffel.stays.search({

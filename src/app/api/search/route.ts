@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from 'next/server';
 import { parseSearchQuery } from '@/lib/nlp-parser';
 import { searchFlights, searchStays } from '@/lib/duffel-client';
 import { buildDeals } from '@/lib/deal-builder';
-import { searchDeals as searchMockDeals } from '@/lib/search-engine';
+import { buildQueryText, embedText } from '@/lib/embeddings';
+import { findSimilarDestinations } from '@/lib/destination-search';
 import { SearchResult, SessionProfile } from '@/types';
 
 /** Validate and sanitize client-provided session profile to prevent abuse */
@@ -129,6 +130,24 @@ export async function POST(request: NextRequest) {
     const intent = await parseSearchQuery(query);
     console.log('[search] Haiku parsed:', JSON.stringify({ destinations: intent.destinations, nights: intent.nights, travellers: intent.travellers }));
 
+    // Step 1.5: Semantic destination matching
+    const queryText = buildQueryText(intent);
+    const queryEmbedding = await embedText(queryText);
+    let destinations = intent.destinations;
+    let similarityMap: Record<string, number> = {};
+
+    if (queryEmbedding) {
+      const matches = await findSimilarDestinations(queryEmbedding, {
+        limit: 5,
+        budgetPerPerson: intent.budgetPerPerson,
+      });
+      if (matches.length > 0) {
+        destinations = matches.slice(0, 3).map(m => m.slug);
+        similarityMap = Object.fromEntries(matches.map(m => [m.slug, m.similarity]));
+        console.log('[search] Semantic matches:', matches.map(m => `${m.slug} (${m.similarity.toFixed(2)})`).join(', '));
+      }
+    }
+
     // Step 2: Calculate dates
     const now = new Date();
     const todayStr = now.toISOString().split('T')[0];
@@ -156,17 +175,17 @@ export async function POST(request: NextRequest) {
     console.log('[search] Dates:', departureDate, '→', returnDate);
 
     // Step 3: Search flights and stays in parallel
-    console.log('[search] Searching Duffel flights + stays...');
+    console.log('[search] Searching Duffel flights + stays for:', destinations.join(', '));
     const [flights, stays] = await Promise.all([
       searchFlights({
-        destinations: intent.destinations,
+        destinations,
         origin: intent.originAirport ?? undefined,
         departureDate,
         returnDate,
         travellers: intent.travellers,
       }),
       searchStays({
-        destinations: intent.destinations,
+        destinations,
         checkIn: departureDate,
         checkOut: returnDate,
         guests: intent.travellers,
@@ -183,22 +202,9 @@ export async function POST(request: NextRequest) {
       budgetPerPerson: intent.budgetPerPerson,
       origin: intent.originAirport ?? undefined,
       sessionProfile: sanitizeSessionProfile(body.sessionProfile),
+      similarityScores: similarityMap,
     });
     console.log('[search] Built', deals.length, 'deals');
-
-    // If Duffel returned no results (test mode, no Stays access, etc.),
-    // use Claude Haiku preferences with mock deals as a hybrid fallback
-    if (deals.length === 0) {
-      console.log('[search] No Duffel results — falling back to mock deals');
-      const mockResult = await searchMockDeals(query);
-      const result: SearchResult = {
-        deals: mockResult.deals,
-        preferences: intent.preferences.length > 0 ? intent.preferences : mockResult.preferences,
-        query,
-        source: 'mock',
-      };
-      return setCorsHeaders(NextResponse.json(result), origin);
-    }
 
     const result: SearchResult = {
       deals: deals.slice(0, 6),

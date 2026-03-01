@@ -6,6 +6,7 @@
  */
 
 import { Redis } from "@upstash/redis";
+import { getSupabase } from "./supabase";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -199,10 +200,10 @@ function round2(n: number): number {
 }
 
 // ---------------------------------------------------------------------------
-// Seed price lookup (private)
+// Seed price lookup (Supabase-first, hardcoded fallback)
 // ---------------------------------------------------------------------------
 
-// Reverse IATA→city lookup for seed price matching
+// Reverse IATA→city lookup for hardcoded seed price fallback
 const IATA_TO_CITY: Record<string, string> = {
   lis: "lisbon", bcn: "barcelona", ams: "amsterdam", fco: "rome",
   opo: "porto", prg: "prague", dbv: "dubrovnik", rak: "marrakech",
@@ -211,17 +212,43 @@ const IATA_TO_CITY: Record<string, string> = {
   edi: "edinburgh", nce: "nice", spu: "split", agp: "malaga",
 };
 
-function getSeedPrice(route: string, nights: number): number | null {
-  // route is e.g. "LHR-LIS" — try to match the destination city
+async function getSeedPriceFromSupabase(iataOrSlug: string): Promise<number | null> {
+  const supabase = getSupabase();
+  if (!supabase) return null;
+
+  try {
+    // Try by slug first, then by IATA code
+    const { data } = await supabase
+      .from('destinations')
+      .select('seed_price_gbp')
+      .or(`slug.eq.${iataOrSlug},iata.ilike.${iataOrSlug}`)
+      .limit(1)
+      .single();
+
+    return data?.seed_price_gbp ?? null;
+  } catch {
+    return null;
+  }
+}
+
+async function getSeedPrice(route: string, nights: number): Promise<number | null> {
   const dest = route.split("-").pop()?.toLowerCase() ?? "";
 
-  // Direct city name match first (works if route uses city names)
+  // 1. Try Supabase
+  const dbPrice = await getSeedPriceFromSupabase(dest);
+  if (dbPrice != null) return dbPrice * (nights / 3);
+
+  // Also try resolving IATA to slug for Supabase lookup
+  const cityName = IATA_TO_CITY[dest];
+  if (cityName) {
+    const dbPriceBySlug = await getSeedPriceFromSupabase(cityName);
+    if (dbPriceBySlug != null) return dbPriceBySlug * (nights / 3);
+  }
+
+  // 2. Hardcoded fallback
   if (SEED_PRICES[dest] !== undefined) {
     return SEED_PRICES[dest] * (nights / 3);
   }
-
-  // IATA code → city name lookup
-  const cityName = IATA_TO_CITY[dest];
   if (cityName && SEED_PRICES[cityName] !== undefined) {
     return SEED_PRICES[cityName] * (nights / 3);
   }
@@ -326,7 +353,7 @@ export async function getMarketPrice(
   }
 
   // Fallback to seed price
-  const seed = getSeedPrice(route, nights);
+  const seed = await getSeedPrice(route, nights);
   const price = seed ?? 300 * (nights / 3); // generic fallback
 
   return {

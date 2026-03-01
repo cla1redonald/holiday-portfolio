@@ -11,6 +11,7 @@ interface BundleParams {
   budgetPerPerson: number | null;
   origin?: string;
   sessionProfile?: SessionProfile | null;
+  similarityScores?: Record<string, number>;
 }
 
 // Current margin config — passthrough until bed bank / affiliate is active
@@ -66,6 +67,7 @@ interface ConfidenceInput {
   departureDate: string;
   priceContext: PriceContext;
   sessionProfile?: SessionProfile | null;
+  similarityScores?: Record<string, number>;
 }
 
 interface ConfidenceResult {
@@ -82,7 +84,7 @@ interface ConfidenceResult {
 }
 
 function calculateDealConfidence(input: ConfidenceInput): ConfidenceResult {
-  const { destination, totalPricePerPerson, interests, departureDate, priceContext, sessionProfile } = input;
+  const { destination, totalPricePerPerson, interests, departureDate, priceContext, sessionProfile, similarityScores } = input;
   const reasons: string[] = [];
 
   // --- Factor 1: Price Percentile (0-25) ---
@@ -120,29 +122,39 @@ function calculateDealConfidence(input: ConfidenceInput): ConfidenceResult {
 
   // --- Factor 2: Interest Match (0-20) ---
   let interestMatchScore = 0;
-  const strengths = DEST_STRENGTHS[destination] ?? [];
-  const sessionInterests = sessionProfile?.interests ?? {};
 
-  // Weight interests by session frequency
-  let weightedMatchScore = 0;
-  const matchedInterests: string[] = [];
-  for (const interest of interests) {
-    if (strengths.includes(interest)) {
-      const sessionWeight = Math.min((sessionInterests[interest] ?? 1), 3); // cap at 3x
-      weightedMatchScore += sessionWeight;
-      matchedInterests.push(interest);
+  if (similarityScores?.[destination] != null) {
+    // Semantic similarity scoring (cosine similarity 0-1 → 0-20 pts)
+    const sim = similarityScores[destination];
+    interestMatchScore = Math.round(sim * 20);
+    if (sim >= 0.7) reasons.push('Strong match for your style');
+    else if (sim >= 0.5) reasons.push('Good match for your preferences');
+    else if (sim >= 0.3) reasons.push('Partial match');
+  } else {
+    // Tag-based fallback (when similarity scores unavailable)
+    const strengths = DEST_STRENGTHS[destination] ?? [];
+    const sessionInterests = sessionProfile?.interests ?? {};
+
+    let weightedMatchScore = 0;
+    const matchedInterests: string[] = [];
+    for (const interest of interests) {
+      if (strengths.includes(interest)) {
+        const sessionWeight = Math.min((sessionInterests[interest] ?? 1), 3);
+        weightedMatchScore += sessionWeight;
+        matchedInterests.push(interest);
+      }
     }
-  }
 
-  if (weightedMatchScore >= 5) {
-    interestMatchScore = 20;
-    reasons.push(`Strong match for ${matchedInterests.slice(0, 2).join(' + ')}`);
-  } else if (weightedMatchScore >= 3) {
-    interestMatchScore = 15;
-    reasons.push(`Good match for ${matchedInterests[0] ?? 'your preferences'}`);
-  } else if (weightedMatchScore >= 1) {
-    interestMatchScore = 10;
-    reasons.push('Partial match for your style');
+    if (weightedMatchScore >= 5) {
+      interestMatchScore = 20;
+      reasons.push(`Strong match for ${matchedInterests.slice(0, 2).join(' + ')}`);
+    } else if (weightedMatchScore >= 3) {
+      interestMatchScore = 15;
+      reasons.push(`Good match for ${matchedInterests[0] ?? 'your preferences'}`);
+    } else if (weightedMatchScore >= 1) {
+      interestMatchScore = 10;
+      reasons.push('Partial match for your style');
+    }
   }
 
   // --- Factor 3: Booking Lead Time (0-15) ---
@@ -199,7 +211,8 @@ function calculateDealConfidence(input: ConfidenceInput): ConfidenceResult {
     }
 
     // Check if any of this destination's strengths were dismissed
-    const dismissedOverlap = strengths.filter(s => dismissed.includes(s)).length;
+    const destStrengths = DEST_STRENGTHS[destination] ?? [];
+    const dismissedOverlap = destStrengths.filter((s: string) => dismissed.includes(s)).length;
     if (dismissedOverlap > 0) {
       sessionAlignmentScore = Math.max(0, sessionAlignmentScore - 5);
     }
@@ -254,7 +267,7 @@ function calculateMargin(subtotal: number, config: MarginConfig): number {
 // ---------------------------------------------------------------------------
 
 export async function buildDeals(params: BundleParams): Promise<Deal[]> {
-  const { flights, stays, interests, travellers, budgetPerPerson, origin, sessionProfile } = params;
+  const { flights, stays, interests, travellers, budgetPerPerson, origin, sessionProfile, similarityScores } = params;
   const deals: Deal[] = [];
   const currencyKnownByIndex = new Map<number, boolean>();
   const priceObservations: PriceObservation[] = [];
@@ -321,6 +334,7 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
       departureDate: flight.departureDate,
       priceContext: priceCtx,
       sessionProfile,
+      similarityScores,
     });
 
     const destName = flight.destination.charAt(0).toUpperCase() + flight.destination.slice(1);

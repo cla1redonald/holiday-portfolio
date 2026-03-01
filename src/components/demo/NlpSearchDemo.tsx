@@ -2,7 +2,6 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Deal, SearchResult, SessionProfile, UserPreference } from '@/types';
-import { searchDeals } from '@/lib/search-engine';
 import { getSessionProfile, updateSessionProfile, dismissPreference } from '@/lib/session-preferences';
 import SearchInput from './SearchInput';
 import SuggestedQueries from './SuggestedQueries';
@@ -23,9 +22,6 @@ async function searchViaApi(query: string, sessionProfile: SessionProfile | null
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    if (data.fallback) {
-      return searchDeals(query);
-    }
     throw new Error(data.error ?? 'Search failed');
   }
 
@@ -62,11 +58,7 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
     setHasSearched(true);
     onQueryChange?.(q);
     try {
-      const result = await searchViaApi(q, sessionProfile, controller.signal).catch((err) => {
-        if (err instanceof DOMException && err.name === 'AbortError') throw err;
-        console.error('API search failed, falling back to mock:', err);
-        return searchDeals(q);
-      });
+      const result = await searchViaApi(q, sessionProfile, controller.signal);
       // Only update state if this is still the active request
       if (abortControllerRef.current !== controller) return;
       setDeals(result.deals);
@@ -206,11 +198,6 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
               <p className="text-sm text-secondary">
                 <span className="font-semibold text-foreground">{deals.length} deals</span> matched to your search
               </p>
-              {source === 'mock' && (
-                <span className="text-xs text-secondary/60">
-                  Sample results — live pricing unavailable
-                </span>
-              )}
             </div>
             <DealGrid deals={deals} />
             <PreferencePanel
