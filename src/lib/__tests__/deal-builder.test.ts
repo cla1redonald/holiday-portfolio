@@ -34,6 +34,7 @@ import type { SessionProfile } from '@/types';
 function makeFlight(overrides: Partial<FlightResult> = {}): FlightResult {
   return {
     destination: 'lisbon',
+    originAirport: 'LHR',
     airline: 'TAP',
     departureDate: '2026-04-15',
     returnDate: '2026-04-18',
@@ -105,7 +106,6 @@ const defaultParams = {
   interests: ['food', 'culture'],
   travellers: 2,
   budgetPerPerson: null as number | null,
-  origin: 'LHR',
   resolvedDestinations: defaultResolvedDestinations,
 };
 

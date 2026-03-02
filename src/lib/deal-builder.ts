@@ -17,7 +17,6 @@ interface BundleParams {
   interests: string[];
   travellers: number;
   budgetPerPerson: number | null;
-  origin?: string;
   sessionProfile?: SessionProfile | null;
   similarityScores?: Record<string, number>;
   destinationTags?: Record<string, string[]>;
@@ -196,11 +195,10 @@ function calculateDealConfidence(input: ConfidenceInput): ConfidenceResult {
 // ---------------------------------------------------------------------------
 
 export async function buildDeals(params: BundleParams): Promise<Deal[]> {
-  const { flights, stays, travellers, budgetPerPerson, origin, sessionProfile, similarityScores, destinationTags, resolvedDestinations } = params;
+  const { flights, stays, travellers, budgetPerPerson, sessionProfile, similarityScores, destinationTags, resolvedDestinations } = params;
   const deals: Deal[] = [];
   const currencyKnownByIndex = new Map<number, boolean>();
   const priceObservations: PriceObservation[] = [];
-  const originCode = origin ?? 'LHR';
 
   // Warm FX cache for all currencies we'll need
   const currencies = new Set(flights.map(f => f.currency).concat(stays.map(s => s.currency)));
@@ -210,7 +208,8 @@ export async function buildDeals(params: BundleParams): Promise<Deal[]> {
   const routeKeys = flights.map((flight) => {
     const resolved = resolvedDestinations?.[flight.destination];
     const iata = resolved?.iata ?? flight.destination.toUpperCase();
-    return `${originCode}-${iata}`;
+    const flightOrigin = flight.originAirport ?? 'LHR';
+    return `${flightOrigin}-${iata}`;
   });
   const marketDataPromises = routeKeys.map((key, i) => getMarketPrice(key, flights[i].nights));
   const marketDataResults = await Promise.all(marketDataPromises);

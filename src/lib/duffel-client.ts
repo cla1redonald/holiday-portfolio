@@ -135,6 +135,7 @@ export interface AncillaryResult {
 
 export interface FlightResult {
   destination: string;
+  originAirport: string;
   airline: string;
   departureDate: string;
   returnDate: string;
@@ -172,14 +173,14 @@ export interface StayResult {
 
 export async function searchFlights(params: {
   destinations: string[];
-  origin?: string;
+  origins?: string[];
   departureDate: string;
   returnDate: string;
   travellers: number;
   resolvedDestinations?: ResolvedDestination[];
 }): Promise<FlightResult[]> {
   const duffel = getDuffel();
-  const origin = params.origin ?? 'LHR';
+  const originCodes = params.origins?.length ? params.origins : ['LHR'];
   const results: FlightResult[] = [];
 
   // Build a lookup map from pre-resolved destinations
@@ -193,8 +194,17 @@ export async function searchFlights(params: {
     type: 'adult' as const,
   }));
 
-  // Search flights to each destination in parallel (max 5), with per-search timeout
-  const searches = params.destinations.slice(0, 5).map((dest) => withTimeout((async () => {
+  // Search flights for each origin × destination pair in parallel, with per-search timeout
+  const pairs: Array<{ origin: string; dest: string }> = [];
+  for (const oc of originCodes) {
+    for (const dest of params.destinations.slice(0, 5)) {
+      pairs.push({ origin: oc, dest });
+    }
+  }
+  // Cap total parallel searches to avoid Duffel rate limits
+  const cappedPairs = pairs.slice(0, 15);
+
+  const searches = cappedPairs.map(({ origin, dest }) => withTimeout((async () => {
     const resolved = resolvedMap.get(dest) ?? await resolveDestination(dest);
     if (!resolved) return null;
     const cityInfo = { iata: resolved.iata, latitude: resolved.latitude, longitude: resolved.longitude };
@@ -327,6 +337,7 @@ export async function searchFlights(params: {
 
       return {
         destination: dest,
+        originAirport: origin,
         airline: owner?.name ?? 'Airline',
         departureDate: params.departureDate,
         returnDate: params.returnDate,
