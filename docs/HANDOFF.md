@@ -6,21 +6,29 @@
 
 ---
 
-## Current Status (2026-03-02)
+## Current Status (2026-03-02, session 2)
 
 ### What's live
 
-NLP-powered city break search engine. Users type natural language ("somewhere warm under £400"), get real flight deals with pricing, confidence scoring, price sparklines, and a contact-to-book flow.
+NLP-powered city break search engine. Users type natural language ("somewhere warm under £400"), get real flight deals with pricing, confidence scoring, price sparklines, and a contact-to-book flow. Multi-airport origin selection, mobile-responsive UI, and friendly error handling.
 
 ### What changed this session
 
-1. **Booking intent persistence** — `/api/track` now saves `bookingIntents` count + `bookingIntentDealIds` to the Supabase session profile. Previously accepted but silently discarded.
-2. **Redis embedding cache** — OpenAI embedding results cached in Upstash Redis (7-day TTL) with in-memory L1 cache. Eliminates redundant API calls after Vercel cold starts.
-3. **Country names fixed** — Duffel Places API fallback now extracts `country_name` and sets `slug` on resolved destinations. Previously hardcoded as empty string.
-4. **Amadeus hotel pipeline fixed** — Destinations resolved via Duffel Places fallback now have slugs, so Amadeus hotel search actually runs. Previously skipped because `.filter(rd => rd.slug)` filtered them out.
-5. **Amadeus test environment** — Switched to `test.api.amadeus.com` (configurable via `AMADEUS_BASE_URL`). Test credentials were being rejected by production endpoint.
-6. **Architecture review** — Full written review with Mermaid diagrams at `docs/plans/2026-03-01-architecture-review.md`.
-7. **README restored** — Replaced Next.js boilerplate with proper Roami documentation.
+1. **Error UX** — SearchError component with type-specific banners: rate limit (countdown timer + single auto-retry, then manual), server error and network (retry button), service unavailable (wait message). Replaces silent failures.
+2. **Origin airport selector** — 9 UK airport pills below the search bar (LHR, LGW, MAN, STN, EDI, BHX, BRS, GLA, LTN). Multi-select with min-1 constraint, persisted in sessionStorage, validated against known codes.
+3. **Multi-origin flight search** — Backend fans out Duffel searches across selected origins × destinations (round-robin, capped at 15 parallel). NLP-parsed origin overrides client selection when user mentions an airport in their query.
+4. **Mobile responsiveness** — DealCard: adaptive image height, tighter padding, scaled price text, 44px touch targets. DealDetail: responsive hero overlay, stacked price intelligence grid on narrow screens.
+5. **Accessibility** — OriginSelector pills have `aria-pressed` and `type="button"`.
+
+### Previous session changes (2026-03-02, session 1)
+
+1. Booking intent persistence — `/api/track` saves bookingIntents to Supabase session
+2. Redis embedding cache — 7-day TTL with in-memory L1 cache
+3. Country names fixed — Duffel Places fallback populates country_name and slug
+4. Amadeus hotel pipeline fixed — slugs now present so hotel search runs
+5. Amadeus test environment — switched to test.api.amadeus.com
+6. Architecture review — `docs/plans/2026-03-01-architecture-review.md`
+7. README restored
 
 ### What's working
 
@@ -36,7 +44,6 @@ NLP-powered city break search engine. Users type natural language ("somewhere wa
 1. **Most cities show "Hotel TBC"** — Amadeus test environment only has hotel data for a few cities. Fix: upgrade to Amadeus production credentials and set `AMADEUS_BASE_URL=https://api.amadeus.com`
 2. **Price sparklines sparse** — Need 2+ searches for the same route before sparklines render. No seed data.
 3. **No payment integration** — Booking is manual via email (hello@roami.world) / WhatsApp (+447730569793)
-4. **Origin hardcoded to LHR** — Should be configurable per user
 
 ---
 
@@ -62,7 +69,7 @@ Deal card click → sessionStorage deal store → /deal/[id] → DealDetail page
 | `src/lib/nlp-parser.ts` | Claude Haiku NLP intent extraction |
 | `src/lib/embeddings.ts` | OpenAI embeddings + Redis cache (7-day TTL) |
 | `src/lib/destination-search.ts` | Supabase pgvector cosine similarity |
-| `src/lib/duffel-client.ts` | Duffel flights + stays + destination resolution |
+| `src/lib/duffel-client.ts` | Duffel flights (multi-origin fan-out) + stays + destination resolution |
 | `src/lib/amadeus-client.ts` | Amadeus Hotel Search (OAuth 2.0, 2-step, test env) |
 | `src/lib/deal-builder.ts` | Deal assembly, 5-factor scoring, price history |
 | `src/lib/pricing.ts` | Pricing engine (Duffel fees + 5% markup + ATOL) |
@@ -105,7 +112,7 @@ AMADEUS_BASE_URL=           # Optional — defaults to test.api.amadeus.com
 ## Testing
 
 ```bash
-npm test            # 115 tests across 8 files
+npm test            # 115 tests across 8 files (all passing)
 npx tsc --noEmit    # type check
 npm run build       # production build
 npm run dev         # dev server on localhost:3000
@@ -119,15 +126,20 @@ Ranked by impact for friends testing:
 
 1. **Amadeus production credentials** — upgrade from test to production for real hotel names everywhere
 2. **Seed price history** — pre-populate Redis with price observations so sparklines render from first search
-3. **Mobile responsiveness pass** — deal detail + booking pages on phones
-4. **Origin airport selection** — let users pick departure airport (currently hardcoded LHR)
-5. **Error UX** — better error messages, retry with modified query suggestion
+3. ~~Mobile responsiveness pass~~ — done (PR #10)
+4. ~~Origin airport selection~~ — done (PR #10)
+5. ~~Error UX~~ — done (PR #10)
 6. **Pro tier validation** — monitor breakdownClicks and proInterestClicked metrics to gauge demand
 
 ---
 
 ## Commits This Session
 
+```
+acfeba9 feat: mobile responsiveness, origin selector, error UX (#10)
+```
+
+### Previous session commits
 ```
 8c96ef2 fix: use Amadeus test environment by default
 d8bc350 fix: remove debug logging from search route
