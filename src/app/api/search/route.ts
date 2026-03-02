@@ -119,6 +119,9 @@ export async function POST(request: NextRequest) {
 
     const body = await request.json();
     const query = body.query;
+    const clientOrigins: string[] | undefined = Array.isArray(body.origins)
+      ? body.origins.filter((o: unknown): o is string => typeof o === 'string').slice(0, 9)
+      : undefined;
 
     if (!query || typeof query !== 'string') {
       return setCorsHeaders(
@@ -214,7 +217,7 @@ export async function POST(request: NextRequest) {
     const [flights, duffelStays] = await Promise.all([
       searchFlights({
         destinations,
-        origin: intent.originAirport ?? undefined,
+        origins: intent.originAirport ? [intent.originAirport] : clientOrigins,
         departureDate,
         returnDate,
         travellers: intent.travellers,
@@ -277,7 +280,6 @@ export async function POST(request: NextRequest) {
       interests: intent.interests,
       travellers: intent.travellers,
       budgetPerPerson: intent.budgetPerPerson,
-      origin: intent.originAirport ?? undefined,
       sessionProfile,
       similarityScores: similarityMap,
       destinationTags,

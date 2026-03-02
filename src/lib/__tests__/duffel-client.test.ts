@@ -507,7 +507,7 @@ describe('searchFlights — ancillary fetching', () => {
 
   const flightParams = {
     destinations: ['lisbon'],
-    origin: 'LHR',
+    origins: ['LHR'],
     departureDate: '2026-04-15',
     returnDate: '2026-04-18',
     travellers: 1,
