@@ -88,7 +88,7 @@ export default function DealCard({ deal }: DealCardProps) {
       className="bg-surface rounded-2xl border border-border/60 card-shadow hover:card-shadow-hover transition-all duration-300 overflow-hidden flex flex-col group hover:-translate-y-1"
     >
       {/* Image */}
-      <div className="relative h-48 overflow-hidden">
+      <div className="relative h-40 sm:h-48 overflow-hidden">
         <Image
           src={deal.image}
           alt={`${deal.destination}, ${deal.country}`}
@@ -142,7 +142,7 @@ export default function DealCard({ deal }: DealCardProps) {
       </div>
 
       {/* Content */}
-      <div className="p-4 flex flex-col flex-1 gap-2.5">
+      <div className="p-3.5 sm:p-4 flex flex-col flex-1 gap-2">
         {/* Hotel */}
         <p className="text-sm text-foreground font-medium leading-tight">{deal.hotel}</p>
 
@@ -211,7 +211,7 @@ export default function DealCard({ deal }: DealCardProps) {
         <div className="mt-auto pt-2 border-t border-border/40">
           <div className="flex items-center gap-2">
             <div className="flex items-baseline gap-2">
-              <span className="font-mono text-2xl font-bold text-accent">
+              <span className="font-mono text-xl sm:text-2xl font-bold text-accent">
                 £{deal.pricePerPerson}
               </span>
               {savingsPct > 0 && (
@@ -273,7 +273,7 @@ export default function DealCard({ deal }: DealCardProps) {
         {/* CTA */}
         <button
           onClick={handleViewDeal}
-          className="w-full bg-accent hover:bg-accent/90 text-white font-display font-medium py-2.5 rounded-xl text-sm transition-all duration-200 cursor-pointer mt-1"
+          className="w-full bg-accent hover:bg-accent/90 text-white font-display font-medium py-3 sm:py-2.5 rounded-xl text-sm transition-all duration-200 cursor-pointer mt-1"
         >
           View Deal
         </button>
