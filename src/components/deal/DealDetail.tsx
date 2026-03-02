@@ -37,10 +37,10 @@ export default function DealDetail({ deal, onBook }: DealDetailProps) {
           priority
         />
         <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 to-transparent" />
-        <div className="absolute bottom-6 left-6 right-6">
+        <div className="absolute bottom-4 left-4 right-4 sm:bottom-6 sm:left-6 sm:right-6">
           <div className="flex items-end justify-between gap-4">
             <div>
-              <h1 className="font-display font-bold text-white text-3xl sm:text-4xl drop-shadow-sm">
+              <h1 className="font-display font-bold text-white text-2xl sm:text-3xl md:text-4xl drop-shadow-sm">
                 {deal.destination}
               </h1>
               <p className="text-white/80 text-lg mt-1">{deal.country}</p>
@@ -93,7 +93,7 @@ export default function DealDetail({ deal, onBook }: DealDetailProps) {
             {deal.priceContext && deal.priceContext.source !== 'seed' && (
               <div className="bg-muted rounded-xl p-4 space-y-2">
                 <h3 className="text-sm font-semibold text-foreground">Price intelligence</h3>
-                <div className="grid grid-cols-2 gap-3 text-sm">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
                   {deal.priceContext.marketMedian && (
                     <div>
                       <span className="text-secondary">Market median</span>
