@@ -1,211 +1,155 @@
 # Roami — Project Handoff
 
-**Date:** 2026-03-01
-**From:** ProveIt validation sessions → Roami production codebase
+**Date:** 2026-03-02
 **Status:** Live at https://roami.world
+**Branch:** `main`
 
 ---
 
-## Current Status & Direction (2026-03-01)
+## Current Status (2026-03-02)
 
-### What Roami is today
+### What's live
 
-An NLP-powered city break search engine with real flight data. Users type natural language queries ("somewhere warm, good food, under £400"), Claude Haiku parses intent, Duffel API returns real flights, and a 5-factor deal confidence scoring model rates each result. A pricing engine provides session-level personalisation and budget context. This is live at roami.world.
+NLP-powered city break search engine. Users type natural language ("somewhere warm under £400"), get real flight deals with pricing, confidence scoring, price sparklines, and a contact-to-book flow.
 
-### What's next
+### What changed this session
 
-Hotels and booking flow are now built. Remaining for friends testing:
-1. **Duffel Stays activation** — still needs sales contact. Amadeus fills the gap but Duffel Stays is preferred (commission-share, no API cost)
-2. **Production payment flow** — currently test-mode balance payment. Need DuffelCardForm + createThreeDSecureSession for real card payments
-3. **Friends testing** — give 10-20 friends access, collect qualitative feedback on whether they'd actually use this for real trips
-4. **Pro tier validation** — monitor breakdownClicks and proInterestClicked metrics from `/api/track` to gauge demand for paid tier
+1. **Booking intent persistence** — `/api/track` now saves `bookingIntents` count + `bookingIntentDealIds` to the Supabase session profile. Previously accepted but silently discarded.
+2. **Redis embedding cache** — OpenAI embedding results cached in Upstash Redis (7-day TTL) with in-memory L1 cache. Eliminates redundant API calls after Vercel cold starts.
+3. **Country names fixed** — Duffel Places API fallback now extracts `country_name` and sets `slug` on resolved destinations. Previously hardcoded as empty string.
+4. **Amadeus hotel pipeline fixed** — Destinations resolved via Duffel Places fallback now have slugs, so Amadeus hotel search actually runs. Previously skipped because `.filter(rd => rd.slug)` filtered them out.
+5. **Amadeus test environment** — Switched to `test.api.amadeus.com` (configurable via `AMADEUS_BASE_URL`). Test credentials were being rejected by production endpoint.
+6. **Architecture review** — Full written review with Mermaid diagrams at `docs/plans/2026-03-01-architecture-review.md`.
+7. **README restored** — Replaced Next.js boilerplate with proper Roami documentation.
 
-### Strategic context
+### What's working
 
-This is a **deliberate thin-slice approach**, not a prototype or demo. The original strategy called for landing page validation before building. That was attempted but the landing page wasn't usable for meaningful testing. The pivot: build the thinnest possible working product and validate through real usage by friends instead of proxy metrics.
+- Search returns deals with country names ("Barcelona, Spain")
+- Amadeus hotels work for cities with test data (London → "W London", Paris → "Best Western Paris CDG Airport")
+- Price sparklines render when 2+ price observations exist for a route
+- Booking flow: "Book This Deal" → deal summary → email/WhatsApp contact CTAs
+- Session personalisation: search history, interests, budget signals, booking intents all tracked
+- Embedding cache survives cold starts via Redis
 
-The full strategy analysis (13 framework artefacts in `docs/strategy/`) remains valid. The three core cruxes — booking leakage, cold start paradox, affiliate cash flow trap — are unchanged. The difference is how we validate: live product with real users, not landing page conversion rates.
+### What's not working / known gaps
 
-See `docs/strategy/00-gap-analysis.md` (Strategy Pivot section) for the full rationale.
-
-### Economics
-
-Acceptable to run at a loss or break-even during friends testing. API costs (Duffel at $3/order + 1%, Claude Haiku at ~£0.006/user/month) are manageable at 10-20 users. Revenue is not the goal right now — honest product feedback is.
-
----
-
-## What Roami Is
-
-A travel personalisation engine that learns how you travel, finds deals you'd love, and manages your year of trips. City breaks are the entry hook; the portfolio view is the loyalty layer. NLP input (not filters), semantic preference graph, visible preference profile.
-
-**Confidence scores (6 research rounds):** Desirability 8/10 | Viability 7/10 | Feasibility 8/10
-
-**One-liner:** "Start with one trip. See where the year takes you."
+1. **Most cities show "Hotel TBC"** — Amadeus test environment only has hotel data for a few cities. Fix: upgrade to Amadeus production credentials and set `AMADEUS_BASE_URL=https://api.amadeus.com`
+2. **Price sparklines sparse** — Need 2+ searches for the same route before sparklines render. No seed data.
+3. **No payment integration** — Booking is manual via email (hello@roami.world) / WhatsApp (+447730569793)
+4. **Origin hardcoded to LHR** — Should be configurable per user
 
 ---
 
-## What's Built and Live
+## Architecture
 
-### Product
-- **NLP search** — natural language query → Claude Haiku parses intent → Duffel API returns real flights
-- **Hotel search** — Duffel Stays with Amadeus Hotel Search API as fallback
-- **Deal detail page** — `/deal/[id]` with flight timeline, hotel info, expandable price breakdown, ancillary selector, Pro teaser
-- **Booking flow** — passenger form → test-mode order creation via Duffel balance payment
-- **Deal cards** — real-time flight prices, deal confidence scoring, airline info, savings vs market average
-- **Preference panel** — shows inferred travel preferences from query (confidence %)
-- **Tier validation tracking** — breakdownClicks and proInterestClicked events tracked via `/api/track`
-- **Waitlist** — email capture with variant tracking, stored via API
+See `docs/plans/2026-03-01-architecture-review.md` for full diagrams and review.
 
-### Tech Stack
-- Next.js 16.1.6 (App Router), TypeScript, Tailwind CSS 4
-- Claude Haiku (NLP parsing) via `@anthropic-ai/sdk`
-- Duffel API (flights + stays + booking) via `@duffel/api` — sandbox mode
-- Amadeus Hotel Search API via `amadeus` — OAuth 2.0, fallback when Duffel Stays empty
-- Vercel (hosting, serverless functions)
-- GitHub Actions (Codex auto-review on PRs)
-
-### Architecture
 ```
-User query → POST /api/search → Claude Haiku (parse) → Duffel (flights) → Deal builder → Response
-                                                      → Duffel Stays → (if empty) → Amadeus Hotels (fallback)
+User query → POST /api/search
+  → Claude Haiku (NLP parse) → OpenAI (embedding) → Supabase pgvector (destination match)
+  → Duffel (flights, parallel) + Duffel Stays → (if empty) → Amadeus Hotels (fallback)
+  → Deal Builder (pricing + FX + 5-factor confidence scoring + price intelligence)
+  → Response (top 6 deals, stripped of internal margin data)
 
-Deal card click → deal-store (useSyncExternalStore) → /deal/[id] → DealDetail page
-                                                                  → Book button → BookingForm → /api/booking/confirm → Duffel order
+Deal card click → sessionStorage deal store → /deal/[id] → DealDetail page
+  → "Book This Deal" → /deal/[id]/book → ContactSection (email + WhatsApp CTAs)
 ```
 
-### Key Files
+### Key modules
+
 | File | Purpose |
 |------|---------|
-| `src/app/api/search/route.ts` | Main search API — rate limiting, validation, orchestration |
-| `src/app/api/booking/confirm/route.ts` | Duffel order creation (test-mode balance payment) |
-| `src/app/api/track/route.ts` | Session event tracking (breakdown clicks, Pro interest) |
-| `src/app/deal/[id]/page.tsx` | Deal detail page entry point |
 | `src/lib/nlp-parser.ts` | Claude Haiku NLP intent extraction |
-| `src/lib/duffel-client.ts` | Duffel flights + stays client |
-| `src/lib/amadeus-client.ts` | Amadeus Hotel Search fallback (OAuth 2.0, 2-step flow) |
-| `src/lib/deal-builder.ts` | Bundle flights into Deal objects with confidence scoring |
-| `src/lib/pricing.ts` | Pricing engine with parameterised markup |
-| `src/lib/deal-store.ts` | Client-side deal store (useSyncExternalStore) |
-| `src/lib/session-preferences.ts` | Client-side session + tracking helpers |
-| `src/components/deal/DealDetail.tsx` | Deal detail page — flight timeline, hotel info, price context |
-| `src/components/deal/PriceSummary.tsx` | Gated price breakdown + Pro teaser + ancillary selector |
-| `src/components/booking/BookingForm.tsx` | Passenger form + payment step machine |
-| `src/components/demo/NlpSearchDemo.tsx` | Search hero — the main product UI |
-| `src/components/demo/DealCard.tsx` | Deal result cards (clickable → deal detail) |
-| `src/types/index.ts` | All TypeScript interfaces |
+| `src/lib/embeddings.ts` | OpenAI embeddings + Redis cache (7-day TTL) |
+| `src/lib/destination-search.ts` | Supabase pgvector cosine similarity |
+| `src/lib/duffel-client.ts` | Duffel flights + stays + destination resolution |
+| `src/lib/amadeus-client.ts` | Amadeus Hotel Search (OAuth 2.0, 2-step, test env) |
+| `src/lib/deal-builder.ts` | Deal assembly, 5-factor scoring, price history |
+| `src/lib/pricing.ts` | Pricing engine (Duffel fees + 5% markup + ATOL) |
+| `src/lib/price-intelligence.ts` | Redis price observations, percentiles, sparkline data |
+| `src/lib/fx-rates.ts` | Live FX rates with 24h cache |
+| `src/lib/deal-store.ts` | Client-side deal store (sessionStorage + useSyncExternalStore) |
+| `src/lib/session-store.ts` | Server-side session persistence (Supabase) |
+| `src/app/api/search/route.ts` | Main search orchestrator |
+| `src/app/api/track/route.ts` | Event tracking (breakdown_click, pro_interest, booking_intent) |
+| `src/app/api/booking/confirm/route.ts` | Duffel order creation (test mode) |
 
-### Environment Variables (`.env.local`)
+### Pages
+
+| Route | Purpose |
+|-------|---------|
+| `/` | Search page (NlpSearchDemo hero) |
+| `/deal/[id]` | Deal detail (flight timeline, hotel, price breakdown, ancillaries) |
+| `/deal/[id]/book` | Booking page (deal summary + email/WhatsApp contact CTAs) |
+
+---
+
+## Environment Variables
+
 ```
-ANTHROPIC_API_KEY=sk-ant-...       # Required — Claude Haiku NLP parsing
-DUFFEL_API_TOKEN=duffel_test_...   # Required — flights, stays, booking
-OPENAI_API_KEY=sk-proj-...         # Optional — semantic embeddings (degrades to keyword without)
-SUPABASE_URL=https://...           # Required — vector search, sessions
-SUPABASE_SERVICE_ROLE_KEY=...      # Required — Supabase access
-UPSTASH_REDIS_REST_URL=...         # Optional — market price intelligence
-UPSTASH_REDIS_REST_TOKEN=...       # Optional — market price intelligence
-AMADEUS_API_KEY=...                # Optional — hotel search fallback (estimated data without)
-AMADEUS_API_SECRET=...             # Optional — hotel search fallback
+ANTHROPIC_API_KEY=          # Required — Claude Haiku NLP parsing
+DUFFEL_API_TOKEN=           # Required — flight search (live token)
+OPENAI_API_KEY=             # Optional — semantic embeddings (degrades to keyword without)
+SUPABASE_URL=               # Required — destination database
+SUPABASE_SERVICE_ROLE_KEY=  # Required — Supabase auth
+NEXT_PUBLIC_SUPABASE_URL=   # Required — client-side Supabase URL
+UPSTASH_REDIS_REST_URL=     # Required — rate limiting, price intelligence, embedding cache
+UPSTASH_REDIS_REST_TOKEN=   # Required
+AMADEUS_API_KEY=            # Optional — hotel search fallback
+AMADEUS_API_SECRET=         # Optional — hotel search fallback
+AMADEUS_BASE_URL=           # Optional — defaults to test.api.amadeus.com
 ```
 
 ---
 
-## What's Not Built Yet
+## Testing
 
-### Immediate (from issues log)
-See `docs/issues-log.md` for full backlog. Key items:
-- **Duffel Stays activation** — returns 403, need to contact Duffel sales. Amadeus fills the gap meanwhile
-- **Production card payments** — DuffelCardForm + createThreeDSecureSession needed for real payments
-- **Origin airport selection** — hardcoded to LHR, should be configurable
-- **Caching** — no flight result caching, every search hits Duffel
-- **Error UX** — generic error messages, no retry with modified query
-- **Hotel booking** — only flight orders are created. Hotel booking is display-only
-
-### Product Roadmap (from strategy)
-See `docs/strategy/13-phase-1-plan.md` for full Phase 1 plan:
-1. ~~**Booking flow** — move from "View Deal" → actual checkout~~ **DONE** (test mode)
-2. **Pro tier** — breakdownClicks and proInterestClicked are being tracked. If demand validates, implement 2% markup tier
-3. **Preference graph** — persist user preferences across sessions (vector DB)
-4. **Portfolio view** — budget tracker, trip history, planned trips
-5. **Revenue** — commission via Duffel, bed bank net rates, dynamic packaging
+```bash
+npm test            # 115 tests across 8 files
+npx tsc --noEmit    # type check
+npm run build       # production build
+npm run dev         # dev server on localhost:3000
+```
 
 ---
 
-## Business Analysis & Research
+## What to Tackle Next
 
-All ProveIt validation work has been copied into this repo:
+Ranked by impact for friends testing:
 
-### `docs/business/`
-| File | Contents |
-|------|----------|
-| `discovery.md` | Full product discovery — idea evolution, architecture, USPs, risks, confidence scores |
-| `validation-playbook.md` | 8-week pre-build validation programme (Gates 1-3), budget, risk register |
-
-### `docs/strategy/` (14 framework analyses)
-| File | Framework |
-|------|-----------|
-| `00-gap-analysis.md` | **Start here** — comprehensive index with gaps and owners |
-| `01-bmc-current.md` | Business Model Canvas (current state) |
-| `02-bmc-target.md` | Business Model Canvas (target state) |
-| `03-value-proposition-canvas.md` | Value Proposition Design |
-| `04-swot-confrontation.md` | SWOT + Confrontation Matrix |
-| `05-five-forces.md` | Porter's 5 Forces |
-| `06-blue-ocean.md` | Blue Ocean Strategy |
-| `07-five-choices.md` | Playing to Win (5 Choices) |
-| `08-strategy-kernel.md` | Rumelt Strategy Kernel |
-| `09-wardley-map.md` | Wardley Mapping (build vs buy) |
-| `10-opportunity-trees.md` | Opportunity Solution Trees |
-| `11-wwhtbt-conditions.md` | What Would Have To Be True |
-| `12-decision-tree.md` | Decision Tree (phase gates) |
-| `13-phase-1-plan.md` | Phase 1 Execution Plan |
-
-### `docs/research/` (18 files)
-| Files | Contents |
-|-------|----------|
-| `research-1.md` | Initial market research |
-| `research-3-ai-travel.md` | AI travel competitor analysis (Mindtrip, Romie, etc.) |
-| `research-4-tech-feasibility.md` | Technical feasibility assessment |
-| `research-5-revenue-models.md` | Revenue model analysis |
-| `research-5-revenue-risks.md` | Revenue risk assessment |
-| `research-6-bed-banks.md` | Bed bank economics deep-dive |
-| `swarm-1-*.md` (6 files) | Research swarm round 1 (bull, bear, technical, customer, devil's advocate, synthesis) |
-| `swarm-2-*.md` (6 files) | Research swarm round 2 |
-
-### Obsidian Vault (external reference)
-Strategy analyses also live in the Obsidian vault for browsing with graph view and backlinks:
-- `~/claudesidian/Strategy/holiday-portfolio-2026/` — full 14-file strategy analysis (latest)
-- `~/claudesidian/Strategy/holiday-portfolio/` — earlier iteration (BMC + VPC only)
-
-These are the same frameworks as `docs/strategy/` but may be browsed more easily in Obsidian.
-
-### `docs/` (existing)
-| File | Contents |
-|------|----------|
-| `api-architecture.md` | API route design and Duffel integration docs |
-| `issues-log.md` | Full issue tracker (7 done, 16 backlog) |
-| `style-guide.md` | Design system and component guidelines |
-| `tone-of-voice.md` | Brand voice guide |
+1. **Amadeus production credentials** — upgrade from test to production for real hotel names everywhere
+2. **Seed price history** — pre-populate Redis with price observations so sparklines render from first search
+3. **Mobile responsiveness pass** — deal detail + booking pages on phones
+4. **Origin airport selection** — let users pick departure airport (currently hardcoded LHR)
+5. **Error UX** — better error messages, retry with modified query suggestion
+6. **Pro tier validation** — monitor breakdownClicks and proInterestClicked metrics to gauge demand
 
 ---
 
-## 6 USPs vs Competitors
+## Commits This Session
 
-1. **NLP input** — "somewhere warm, good food, under £400" not destination + dates + filters
-2. **Semantic preference graph** — learns how *you* travel, not just what you search
-3. **Visible preference profile** — "here's what we think you like, is this right?"
-4. **Portfolio thinking** — your year of travel managed as a set, not individual bookings
-5. **Deal confidence scoring** — transparent "why this deal is good" with rationale
-6. **Conversation-driven discovery** — chat to plan, not click to filter
+```
+8c96ef2 fix: use Amadeus test environment by default
+d8bc350 fix: remove debug logging from search route
+8b4b826 fix: populate country and slug on Duffel Places fallback destinations
+6e44b18 Fix: persist booking intents + Redis embedding cache (#9)
+```
+
+---
+
+## Strategy & Research
+
+- `docs/plans/2026-03-01-architecture-review.md` — Architecture review with Mermaid diagrams
+- `docs/strategy/00-gap-analysis.md` — Start here for strategic context
+- `docs/strategy/` — 14 framework analyses (BMC, Blue Ocean, Porter's, Wardley, etc.)
+- `docs/research/` — Revenue models, Duffel economics, bed bank analysis
 
 ---
 
 ## Next Session Checklist
 
-When continuing in `/Users/clairedonald/roami`:
-
-- [ ] Read `docs/HANDOFF.md` (this file) for full context
-- [ ] Read `docs/business/discovery.md` for product vision and architecture
-- [ ] Read `docs/issues-log.md` for open backlog
-- [ ] Check `docs/strategy/00-gap-analysis.md` for strategic gaps to address
-- [ ] Contact Duffel sales for Stays API access
-- [ ] Run `npm run dev` — site runs on localhost:3000
+- [ ] Read this file for context
+- [ ] Check if Amadeus production credentials are available
+- [ ] Run `npm run dev` — localhost:3000
 - [ ] Production is live at https://roami.world
+- [ ] Check `vercel env ls` matches `.env.example` after any deploy
