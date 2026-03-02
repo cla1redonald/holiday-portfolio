@@ -2,12 +2,13 @@
 
 import { useState, useRef, useEffect } from 'react';
 import { Deal, SearchResult, SessionProfile, UserPreference } from '@/types';
-import { getSessionProfile, updateSessionProfile, dismissPreference } from '@/lib/session-preferences';
+import { getSessionProfile, updateSessionProfile, dismissPreference, getSelectedOrigins, saveSelectedOrigins } from '@/lib/session-preferences';
 import SearchInput from './SearchInput';
 import SuggestedQueries from './SuggestedQueries';
 import DealGrid from './DealGrid';
 import PreferencePanel from './PreferencePanel';
 import SearchError from './SearchError';
+import OriginSelector from './OriginSelector';
 
 interface NlpSearchDemoProps {
   onQueryChange?: (query: string) => void;
@@ -21,11 +22,11 @@ class SearchApiError extends Error {
   }
 }
 
-async function searchViaApi(query: string, sessionProfile: SessionProfile | null, signal?: AbortSignal): Promise<SearchResult> {
+async function searchViaApi(query: string, sessionProfile: SessionProfile | null, origins?: string[], signal?: AbortSignal): Promise<SearchResult> {
   const res = await fetch('/api/search', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ query, sessionProfile }),
+    body: JSON.stringify({ query, sessionProfile, origins }),
     signal,
   });
 
@@ -46,11 +47,13 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
   const [source, setSource] = useState<'duffel' | 'mock' | null>(null);
   const [sessionProfile, setSessionProfile] = useState<SessionProfile | null>(null);
   const [error, setError] = useState<{ type: 'rate_limit' | 'server_error' | 'network' | 'unavailable'; message: string; retryAfter?: number } | null>(null);
+  const [selectedOrigins, setSelectedOrigins] = useState<string[]>(['LHR']);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  // Initialize session profile on mount
+  // Initialize session profile and origin selection on mount
   useEffect(() => {
     setSessionProfile(getSessionProfile());
+    setSelectedOrigins(getSelectedOrigins());
   }, []);
 
   // Abort in-flight request on unmount
@@ -69,7 +72,7 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
     setHasSearched(true);
     onQueryChange?.(q);
     try {
-      const result = await searchViaApi(q, sessionProfile, controller.signal);
+      const result = await searchViaApi(q, sessionProfile, selectedOrigins, controller.signal);
       // Only update state if this is still the active request
       if (abortControllerRef.current !== controller) return;
       setDeals(result.deals);
@@ -116,6 +119,11 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
     const updated = dismissPreference(tag);
     setSessionProfile(updated);
     setPreferences((prev) => prev.filter((p) => p.label !== tag));
+  };
+
+  const handleOriginsChange = (origins: string[]) => {
+    setSelectedOrigins(origins);
+    saveSelectedOrigins(origins);
   };
 
   const handleSuggestedQuery = (q: string) => {
@@ -176,6 +184,10 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
               onChange={setQuery}
               onSearch={handleSearch}
               loading={loading}
+            />
+            <OriginSelector
+              selected={selectedOrigins}
+              onChange={handleOriginsChange}
             />
             {!hasSearched && (
               <SuggestedQueries onSelect={handleSuggestedQuery} />

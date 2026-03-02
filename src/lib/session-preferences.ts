@@ -143,3 +143,25 @@ export function resetSession(): void {
     // Ignore
   }
 }
+
+const ORIGINS_KEY = 'roami_origins';
+const DEFAULT_ORIGINS = ['LHR'];
+
+export function getSelectedOrigins(): string[] {
+  if (typeof window === 'undefined') return DEFAULT_ORIGINS;
+  try {
+    const raw = sessionStorage.getItem(ORIGINS_KEY);
+    if (raw) {
+      const parsed = JSON.parse(raw);
+      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+    }
+  } catch {}
+  return DEFAULT_ORIGINS;
+}
+
+export function saveSelectedOrigins(origins: string[]): void {
+  if (typeof window === 'undefined') return;
+  try {
+    sessionStorage.setItem(ORIGINS_KEY, JSON.stringify(origins));
+  } catch {}
+}
