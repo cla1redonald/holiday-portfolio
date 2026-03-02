@@ -36,6 +36,8 @@ export default function OriginSelector({ selected, onChange }: OriginSelectorPro
           return (
             <button
               key={code}
+              type="button"
+              aria-pressed={isSelected}
               onClick={() => toggle(code)}
               title={name}
               className={`px-3 py-1.5 rounded-full text-sm font-medium transition-all duration-200 cursor-pointer ${

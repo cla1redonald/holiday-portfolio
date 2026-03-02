@@ -195,14 +195,18 @@ export async function searchFlights(params: {
   }));
 
   // Search flights for each origin × destination pair in parallel, with per-search timeout
+  // Round-robin origins across destinations so all selected origins get fair coverage
+  const MAX_PAIRS = 15;
+  const dests = params.destinations.slice(0, 5);
   const pairs: Array<{ origin: string; dest: string }> = [];
-  for (const oc of originCodes) {
-    for (const dest of params.destinations.slice(0, 5)) {
+  for (const dest of dests) {
+    for (const oc of originCodes) {
+      if (pairs.length >= MAX_PAIRS) break;
       pairs.push({ origin: oc, dest });
     }
+    if (pairs.length >= MAX_PAIRS) break;
   }
-  // Cap total parallel searches to avoid Duffel rate limits
-  const cappedPairs = pairs.slice(0, 15);
+  const cappedPairs = pairs;
 
   const searches = cappedPairs.map(({ origin, dest }) => withTimeout((async () => {
     const resolved = resolvedMap.get(dest) ?? await resolveDestination(dest);

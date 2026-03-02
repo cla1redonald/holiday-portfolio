@@ -147,13 +147,18 @@ export function resetSession(): void {
 const ORIGINS_KEY = 'roami_origins';
 const DEFAULT_ORIGINS = ['LHR'];
 
+const VALID_CODES = new Set(['LHR','LGW','MAN','STN','EDI','BHX','BRS','GLA','LTN']);
+
 export function getSelectedOrigins(): string[] {
   if (typeof window === 'undefined') return DEFAULT_ORIGINS;
   try {
     const raw = sessionStorage.getItem(ORIGINS_KEY);
     if (raw) {
       const parsed = JSON.parse(raw);
-      if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      if (Array.isArray(parsed)) {
+        const valid = parsed.filter((v): v is string => typeof v === 'string' && VALID_CODES.has(v));
+        if (valid.length > 0) return valid;
+      }
     }
   } catch {}
   return DEFAULT_ORIGINS;

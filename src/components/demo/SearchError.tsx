@@ -40,13 +40,15 @@ const ERROR_CONFIG = {
 export default function SearchError({ type, retryAfter, onRetry, onDismiss }: SearchErrorProps) {
   const config = ERROR_CONFIG[type];
   const [countdown, setCountdown] = useState(retryAfter ?? 0);
+  const [autoRetried, setAutoRetried] = useState(false);
 
   useEffect(() => {
-    if (!config.showCountdown || countdown <= 0) return;
+    if (!config.showCountdown || countdown <= 0 || autoRetried) return;
     const timer = setInterval(() => {
       setCountdown((prev) => {
         if (prev <= 1) {
           clearInterval(timer);
+          setAutoRetried(true);
           onRetry();
           return 0;
         }
@@ -54,7 +56,7 @@ export default function SearchError({ type, retryAfter, onRetry, onDismiss }: Se
       });
     }, 1000);
     return () => clearInterval(timer);
-  }, [config.showCountdown, countdown, onRetry]);
+  }, [config.showCountdown, countdown, onRetry, autoRetried]);
 
   return (
     <div className="relative bg-muted border border-border rounded-2xl p-6 text-center animate-fade-in">
@@ -83,7 +85,7 @@ export default function SearchError({ type, retryAfter, onRetry, onDismiss }: Se
         <p className="font-mono text-sm text-secondary mb-4">{countdown}s</p>
       )}
 
-      {config.showRetry && (
+      {(config.showRetry || (config.showCountdown && autoRetried)) && (
         <button
           onClick={onRetry}
           className="inline-flex items-center gap-2 border border-accent text-accent hover:bg-accent hover:text-white font-display font-medium px-5 py-2 rounded-xl text-sm transition-all duration-200 cursor-pointer"
