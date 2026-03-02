@@ -7,9 +7,18 @@ import SearchInput from './SearchInput';
 import SuggestedQueries from './SuggestedQueries';
 import DealGrid from './DealGrid';
 import PreferencePanel from './PreferencePanel';
+import SearchError from './SearchError';
 
 interface NlpSearchDemoProps {
   onQueryChange?: (query: string) => void;
+}
+
+class SearchApiError extends Error {
+  status: number;
+  constructor(message: string, status: number) {
+    super(message);
+    this.status = status;
+  }
 }
 
 async function searchViaApi(query: string, sessionProfile: SessionProfile | null, signal?: AbortSignal): Promise<SearchResult> {
@@ -22,7 +31,7 @@ async function searchViaApi(query: string, sessionProfile: SessionProfile | null
 
   if (!res.ok) {
     const data = await res.json().catch(() => ({}));
-    throw new Error(data.error ?? 'Search failed');
+    throw new SearchApiError(data.error ?? 'Search failed', res.status);
   }
 
   return res.json();
@@ -36,6 +45,7 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
   const [hasSearched, setHasSearched] = useState(false);
   const [source, setSource] = useState<'duffel' | 'mock' | null>(null);
   const [sessionProfile, setSessionProfile] = useState<SessionProfile | null>(null);
+  const [error, setError] = useState<{ type: 'rate_limit' | 'server_error' | 'network' | 'unavailable'; message: string; retryAfter?: number } | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
   // Initialize session profile on mount
@@ -55,6 +65,7 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
     abortControllerRef.current = controller;
 
     setLoading(true);
+    setError(null);
     setHasSearched(true);
     onQueryChange?.(q);
     try {
@@ -79,7 +90,20 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
       setSessionProfile(updated);
     } catch (err) {
       if (err instanceof DOMException && err.name === 'AbortError') return;
+      if (abortControllerRef.current !== controller) return;
       console.error('Search error:', err);
+
+      if (err instanceof SearchApiError) {
+        if (err.status === 429) {
+          setError({ type: 'rate_limit', message: err.message, retryAfter: 60 });
+        } else if (err.status === 503) {
+          setError({ type: 'unavailable', message: err.message });
+        } else {
+          setError({ type: 'server_error', message: err.message });
+        }
+      } else {
+        setError({ type: 'network', message: 'Couldn\'t connect — check your internet and try again.' });
+      }
     } finally {
       // Only clear loading if this is still the active request
       if (abortControllerRef.current === controller) {
@@ -191,6 +215,22 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
           </div>
         )}
 
+        {/* Error state */}
+        {!loading && error && (
+          <div className="pb-16">
+            <SearchError
+              type={error.type}
+              message={error.message}
+              retryAfter={error.retryAfter}
+              onRetry={() => {
+                setError(null);
+                handleSearch(query);
+              }}
+              onDismiss={() => setError(null)}
+            />
+          </div>
+        )}
+
         {/* Results */}
         {!loading && hasSearched && deals.length > 0 && (
           <div className="pb-16 animate-fade-in">
@@ -224,7 +264,7 @@ export default function NlpSearchDemo({ onQueryChange }: NlpSearchDemoProps) {
         )}
 
         {/* Empty state */}
-        {!loading && hasSearched && deals.length === 0 && (
+        {!loading && hasSearched && deals.length === 0 && !error && (
           <div className="text-center py-16 animate-fade-in">
             <p className="text-lg text-secondary mb-2">No deals found for that search.</p>
             <p className="text-sm text-secondary/70 max-w-md mx-auto mb-6">
